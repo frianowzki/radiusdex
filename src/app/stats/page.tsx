@@ -333,7 +333,7 @@ export default function StatsPage() {
                       U
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600 }}>luneUSDC</div>
+                      <div style={{ fontWeight: 600 }}>Radius USDC</div>
                       <div
                         style={{
                           fontSize: "12px",
@@ -395,7 +395,7 @@ export default function StatsPage() {
                       E
                     </div>
                     <div>
-                      <div style={{ fontWeight: 600 }}>luneEURC</div>
+                      <div style={{ fontWeight: 600 }}>Radius EURC</div>
                       <div
                         style={{
                           fontSize: "12px",

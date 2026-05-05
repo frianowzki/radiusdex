@@ -32,14 +32,7 @@ export default function Navbar() {
             {link.label}
           </Link>
         ))}
-        <a
-          href="https://testnet.arcscan.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="dex-nav-link"
-        >
-          DOCS
-        </a>
+
       </div>
 
       <ConnectButton

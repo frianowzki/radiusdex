@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Radius DEX — Stablecoin Swaps on Arc Network",
   description:
-    "Decentralized stablecoin exchange powered by Lunex Finance StableSwap on Arc Testnet",
+    "Decentralized stablecoin exchange powered by Radius StableSwap on Arc Testnet",
 };
 
 export default function RootLayout({

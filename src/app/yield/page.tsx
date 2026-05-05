@@ -31,15 +31,15 @@ interface VaultInfo {
 
 const VAULTS: VaultInfo[] = [
   {
-    name: "luneUSDC",
-    symbol: "luneUSDC",
+    name: "Radius USDC",
+    symbol: "radUSDC",
     token: USDC,
     vaultAddress: USDC_VAULT_ADDRESS,
     color: "#2775ca",
   },
   {
-    name: "luneEURC",
-    symbol: "luneEURC",
+    name: "Radius EURC",
+    symbol: "radEURC",
     token: EURC,
     vaultAddress: EURC_VAULT_ADDRESS,
     color: "#0052ff",

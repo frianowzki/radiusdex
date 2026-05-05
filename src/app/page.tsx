@@ -86,7 +86,7 @@ export default function HomePage() {
             >
               Stablecoin swaps on Arc Network.
               <br />
-              Low slippage. Deep liquidity. Powered by Lunex Finance.
+              Low slippage. Deep liquidity. Powered by Radius.
             </p>
 
             <div
@@ -214,7 +214,7 @@ export default function HomePage() {
                         Yield
                       </h3>
                       <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                        Deposit into luneUSDC or luneEURC vaults to earn yield on
+                        Deposit into Radius USDC or Radius EURC vaults to earn yield on
                         your stablecoins. Automated strategies optimize returns
                         while preserving capital.
                       </p>
@@ -230,7 +230,7 @@ export default function HomePage() {
             <div className="dex-flex-between">
               <span className="dex-nav-logo">RADIUS DEX</span>
               <span style={{ fontSize: "13px", color: "var(--muted)" }}>
-                Built on Arc Testnet • Powered by Lunex Finance
+                Built on Arc Testnet • Powered by Radius
               </span>
             </div>
           </footer>
