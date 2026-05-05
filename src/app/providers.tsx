@@ -20,7 +20,7 @@ function getConfig(): Config {
     projectId: "radiusdex-placeholder",
     chains: [arcTestnet],
     transports: {
-      [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
+      [arcTestnet.id]: http(),
     },
   });
   return cachedConfig;
