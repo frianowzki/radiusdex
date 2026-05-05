@@ -19,12 +19,16 @@ import {
 } from "@/config/contracts";
 import { USDC, EURC } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
+import { useRadiusAuth } from "@/lib/auth";
 
 type PoolTab = "add" | "remove";
 type RemoveMode = "dual" | "single";
 
 export default function PoolPage() {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { authenticated, address: authAddress } = useRadiusAuth();
+  const address = wagmiAddress ?? authAddress;
+  const isConnected = wagmiConnected || authenticated;
   const [tab, setTab] = useState<PoolTab>("add");
   const [removeMode, setRemoveMode] = useState<RemoveMode>("dual");
 

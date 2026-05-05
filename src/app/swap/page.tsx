@@ -21,9 +21,13 @@ import { TOKENS, type Token } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
+import { useRadiusAuth } from "@/lib/auth";
 
 export default function SwapPage() {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { authenticated, address: authAddress } = useRadiusAuth();
+  const address = wagmiAddress ?? authAddress;
+  const isConnected = wagmiConnected || authenticated;
 
   const [fromToken, setFromToken] = useState<Token>(TOKENS[0]);
   const [toToken, setToToken] = useState<Token>(TOKENS[1]);

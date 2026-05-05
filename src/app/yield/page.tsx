@@ -18,6 +18,7 @@ import {
 } from "@/config/contracts";
 import { USDC, EURC, type Token } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
+import { useRadiusAuth } from "@/lib/auth";
 
 type VaultTab = "deposit" | "withdraw";
 
@@ -47,7 +48,10 @@ const VAULTS: VaultInfo[] = [
 ];
 
 export default function YieldPage() {
-  const { address, isConnected } = useAccount();
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { authenticated, address: authAddress } = useRadiusAuth();
+  const address = wagmiAddress ?? authAddress;
+  const isConnected = wagmiConnected || authenticated;
   const [activeVault, setActiveVault] = useState(0);
   const [vaultTab, setVaultTab] = useState<VaultTab>("deposit");
   const [amount, setAmount] = useState("");
