@@ -213,7 +213,7 @@ export default function PoolPage() {
         <div className="dex-container">
           <h1
             style={{
-              fontSize: "clamp(24px, 6vw, 32px)",
+              fontSize: "32px",
               fontWeight: 700,
               marginBottom: "32px",
             }}
@@ -259,8 +259,11 @@ export default function PoolPage() {
 
             {/* Stats Grid */}
             <div
-              className="dex-grid dex-grid-4"
-              style={{ gap: "16px" }}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "16px",
+              }}
             >
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
                 <div className="dex-stat-label">USDC Reserves</div>
@@ -514,7 +517,7 @@ export default function PoolPage() {
                     <div style={{ textAlign: "right", marginTop: "6px" }}>
                       <button
                         className="dex-btn dex-btn-sm dex-btn-outline"
-                        style={{ fontSize: "12px", padding: "8px 16px" }}
+                        style={{ fontSize: "11px", padding: "4px 12px" }}
                         onClick={() =>
                           setLpAmount(formatUnits(lpBalance, 18))
                         }
@@ -574,12 +577,13 @@ export default function PoolPage() {
                 </h3>
                 {txHistory.map((tx, i) => (
                   <div key={i} className="dex-list-item">
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "4px 12px" }}>
+                    <div>
                       <span style={{ fontWeight: 500 }}>{tx.action}</span>
                       <span
                         style={{
                           fontSize: "13px",
                           color: "var(--muted)",
+                          marginLeft: "12px",
                         }}
                       >
                         {tx.detail}
@@ -588,6 +592,7 @@ export default function PoolPage() {
                         style={{
                           fontSize: "12px",
                           color: "var(--muted)",
+                          marginLeft: "8px",
                         }}
                       >
                         {tx.time}

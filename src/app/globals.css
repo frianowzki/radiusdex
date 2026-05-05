@@ -587,83 +587,13 @@ body {
   .dex-grid-4 { grid-template-columns: repeat(2, 1fr); }
   .dex-grid-3 { grid-template-columns: repeat(2, 1fr); }
   .dex-nav { padding: 0 24px; }
-  .dex-container { padding: 0 24px; }
-}
-
-@media (max-width: 768px) {
-  .dex-nav { padding: 0 16px; height: 64px; }
-  .dex-nav-links { display: none; }
-  .dex-nav-hamburger { display: flex; }
-  .dex-page { padding-top: 96px; }
-  .dex-container { padding: 0 16px; }
-  .dex-card { padding: 20px; border-radius: 16px; }
-  .dex-card-sm { padding: 14px; }
-  .dex-stat-value { font-size: clamp(18px, 5vw, 28px); }
-  .dex-section { margin-bottom: 32px; }
-  .connect-switch-btn { font-size: 10px; padding: 4px 8px; }
 }
 
 @media (max-width: 640px) {
   .dex-grid-4, .dex-grid-3, .dex-grid-2 { grid-template-columns: 1fr; }
-  .history-panel { width: calc(100vw - 32px); right: -8px; }
-  .swap-positions-grid { grid-template-columns: 1fr; }
-}
-
-/* ===== MOBILE HAMBURGER MENU ===== */
-
-.dex-nav-hamburger {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 40px; height: 40px;
-  background: transparent;
-  border: 1px solid var(--glass-border);
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--foreground);
-  transition: all 0.2s;
-}
-
-.dex-nav-hamburger:hover {
-  background: rgba(37, 99, 235, 0.06);
-}
-
-.mobile-menu {
-  position: fixed;
-  top: 64px; left: 0; right: 0;
-  z-index: 49;
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  border-bottom: 1px solid var(--glass-border);
-  padding: 8px 16px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  animation: slideDown 0.2s ease-out;
-}
-
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.mobile-menu-link {
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--muted);
-  text-decoration: none;
-  border-radius: 12px;
-  transition: all 0.15s;
-  min-height: 48px;
-}
-
-.mobile-menu-link:hover,
-.mobile-menu-link.active {
-  background: rgba(37, 99, 235, 0.08);
-  color: var(--foreground);
+  .dex-nav { padding: 0 16px; }
+  .dex-container { padding: 0 16px; }
+  .history-panel { width: 280px; }
 }
 
 /* ===== SWAP PAGE — RADIUS STYLE ===== */
