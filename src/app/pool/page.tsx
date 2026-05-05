@@ -269,12 +269,10 @@ export default function PoolPage() {
                     fontWeight: 700,
                     fontFamily: "var(--font-geist-mono, monospace)",
                     marginTop: "8px",
+                    color: usdcReserve === BigInt(0) ? "var(--muted)" : undefined,
                   }}
                 >
-                  $
-                  {Number(formatUnits(usdcReserve, 6)).toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                  })}
+                  {usdcReserve === BigInt(0) ? "No deposits yet" : `$${Number(formatUnits(usdcReserve, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                 </div>
               </div>
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
@@ -285,12 +283,10 @@ export default function PoolPage() {
                     fontWeight: 700,
                     fontFamily: "var(--font-geist-mono, monospace)",
                     marginTop: "8px",
+                    color: eurcReserve === BigInt(0) ? "var(--muted)" : undefined,
                   }}
                 >
-                  €
-                  {Number(formatUnits(eurcReserve, 6)).toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                  })}
+                  {eurcReserve === BigInt(0) ? "No deposits yet" : `€${Number(formatUnits(eurcReserve, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                 </div>
               </div>
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
@@ -301,12 +297,10 @@ export default function PoolPage() {
                     fontWeight: 700,
                     fontFamily: "var(--font-geist-mono, monospace)",
                     marginTop: "8px",
+                    color: totalLiquidity === 0 ? "var(--muted)" : undefined,
                   }}
                 >
-                  $
-                  {totalLiquidity.toLocaleString(undefined, {
-                    maximumFractionDigits: 2,
-                  })}
+                  {totalLiquidity === 0 ? "No liquidity" : `$${totalLiquidity.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
                 </div>
               </div>
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
@@ -317,11 +311,10 @@ export default function PoolPage() {
                     fontWeight: 700,
                     fontFamily: "var(--font-geist-mono, monospace)",
                     marginTop: "8px",
+                    color: lpSupply === BigInt(0) ? "var(--muted)" : undefined,
                   }}
                 >
-                  {Number(formatUnits(lpSupply, 18)).toLocaleString(undefined, {
-                    maximumFractionDigits: 4,
-                  })}
+                  {lpSupply === BigInt(0) ? "No LP tokens" : Number(formatUnits(lpSupply, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
                 </div>
               </div>
             </div>

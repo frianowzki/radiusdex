@@ -12,6 +12,7 @@ import {
   EURC_INDEX,
 } from "@/config/contracts";
 import Navbar from "@/components/Navbar";
+import { TrustBar } from "@/components/TrustBar";
 
 export default function HomePage() {
   const { data } = useReadContracts({
@@ -223,6 +224,11 @@ export default function HomePage() {
                 </div>
               </Link>
             </div>
+          </section>
+
+          {/* Trust & Transparency */}
+          <section style={{ marginBottom: "48px" }}>
+            <TrustBar />
           </section>
 
           {/* Footer */}

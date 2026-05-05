@@ -366,8 +366,8 @@ export default function YieldPage() {
                 >
                   <span>
                     {vaultTab === "deposit"
-                      ? `${vault.token.symbol} Amount`
-                      : `${vault.token.symbol} Amount to Withdraw`}
+                      ? `Deposit ${vault.token.symbol}`
+                      : `Withdraw ${vault.symbol}`}
                   </span>
                   <span>
                     Balance:{" "}
@@ -388,11 +388,11 @@ export default function YieldPage() {
                   <div className="token-badge">
                     <div
                       className="token-logo"
-                      style={{ background: vault.color }}
+                      style={{ background: vaultTab === "deposit" ? vault.token.color : vault.color }}
                     >
-                      {vault.symbol.charAt(4)}
+                      {vaultTab === "deposit" ? vault.token.symbol.charAt(0) : vault.symbol.charAt(4)}
                     </div>
-                    <span style={{ fontWeight: 600 }}>{vault.symbol}</span>
+                    <span style={{ fontWeight: 600 }}>{vaultTab === "deposit" ? vault.token.symbol : vault.symbol}</span>
                   </div>
                   <input
                     className="dex-input"
@@ -442,7 +442,7 @@ export default function YieldPage() {
                 ) : vaultTab === "deposit" ? (
                   `Deposit ${vault.token.symbol}`
                 ) : (
-                  `Withdraw ${vault.token.symbol}`
+                  `Withdraw ${vault.symbol}`
                 )}
               </button>
             </div>

@@ -92,8 +92,8 @@ export default function StatsPage() {
   const usdcSharePriceNum = Number(formatUnits(usdcSharePrice, 6));
   const eurcSharePriceNum = Number(formatUnits(eurcSharePrice, 6));
 
-  const usdcPercent = tvl > 0 ? (usdcReserveNum / tvl) * 100 : 50;
-  const eurcPercent = tvl > 0 ? (eurcReserveNum / tvl) * 100 : 50;
+  const usdcPercent = tvl > 0 ? (usdcReserveNum / tvl) * 100 : 0;
+  const eurcPercent = tvl > 0 ? (eurcReserveNum / tvl) * 100 : 0;
 
   return (
     <>

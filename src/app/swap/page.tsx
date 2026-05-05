@@ -19,6 +19,7 @@ import {
 } from "@/config/contracts";
 import { TOKENS, type Token } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
+import { TrustBar } from "@/components/TrustBar";
 
 export default function SwapPage() {
   const { address, isConnected } = useAccount();
@@ -193,7 +194,7 @@ export default function SwapPage() {
     const tmp = fromToken;
     setFromToken(toToken);
     setToToken(tmp);
-    setFromAmount("");
+    // preserve amount — quote will recalc via get_dy
   };
 
   const isProcessing = isWritePending || isConfirming;
@@ -390,11 +391,13 @@ export default function SwapPage() {
 
                 {/* Action Button */}
                 {!isConnected ? (
-                  <div style={{ textAlign: "center", padding: "12px" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "14px" }}>
-                      Connect your wallet to swap
-                    </span>
-                  </div>
+                  <button className="dex-btn dex-btn-full" disabled>
+                    Connect wallet to swap
+                  </button>
+                ) : !parsedAmount || parsedAmount <= BigInt(0) ? (
+                  <button className="dex-btn dex-btn-full" disabled>
+                    Enter an amount
+                  </button>
                 ) : (
                   <button
                     className="dex-btn dex-btn-full"
@@ -469,6 +472,11 @@ export default function SwapPage() {
             <div>
               <PoolStatsSidebar />
             </div>
+          </div>
+
+          {/* Trust Bar */}
+          <div style={{ marginTop: 32 }}>
+            <TrustBar />
           </div>
         </div>
       </div>
