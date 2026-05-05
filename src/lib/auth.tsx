@@ -212,7 +212,7 @@ export function RadiusAuthProvider({ children }: { children: ReactNode }) {
           showWalletLoginFirst: false,
           walletChainType: "ethereum-only",
         },
-        loginMethods: ["google", "email", "github", "twitter", "apple"],
+        loginMethods: ["google", "email", "github", "twitter", "apple", "wallet"],
         supportedChains: [arcTestnet],
         defaultChain: arcTestnet,
         embeddedWallets: {
