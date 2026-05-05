@@ -243,7 +243,7 @@ export default function PoolPage() {
                     USDC — EURC
                   </div>
                   <div style={{ fontSize: "13px", color: "var(--muted)" }}>
-                    StableSwap Pool
+                    Stable Coins Pool
                   </div>
                 </div>
               </div>

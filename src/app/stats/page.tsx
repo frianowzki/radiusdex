@@ -133,10 +133,6 @@ export default function StatsPage() {
                 </div>
                 <div className="dex-stat-label">Estimated Fees</div>
               </div>
-              <div className="dex-card" style={{ textAlign: "center" }}>
-                <div className="dex-stat-value">StableSwap</div>
-                <div className="dex-stat-label">Pool Type</div>
-              </div>
             </div>
           </section>
 

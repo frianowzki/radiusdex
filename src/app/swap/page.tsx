@@ -19,6 +19,7 @@ import {
 } from "@/config/contracts";
 import { TOKENS, type Token } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
+import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
 
 export default function SwapPage() {
@@ -218,10 +219,10 @@ export default function SwapPage() {
               <div className="dex-card" style={{ maxWidth: "520px" }}>
                 <div className="dex-flex-between" style={{ marginBottom: "24px" }}>
                   <h2 style={{ fontSize: "20px", fontWeight: 700 }}>Swap</h2>
-                  <span className="dex-badge">
-                    <span className="status-dot" />
-                    StableSwap
-                  </span>
+                  <HistoryIcon
+                    entries={txHistory.map((tx) => ({ hash: tx.hash, label: `${tx.from} → ${tx.to} · ${tx.amount}`, time: tx.time }))}
+                    title="Swap History"
+                  />
                 </div>
 
                 {/* FROM */}
@@ -425,47 +426,6 @@ export default function SwapPage() {
                   </button>
                 )}
               </div>
-
-              {/* Transaction History */}
-              {txHistory.length > 0 && (
-                <div className="dex-card" style={{ marginTop: "24px", maxWidth: "520px" }}>
-                  <h3
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 600,
-                      marginBottom: "16px",
-                    }}
-                  >
-                    Recent Transactions
-                  </h3>
-                  {txHistory.map((tx, i) => (
-                    <div key={i} className="dex-list-item">
-                      <div>
-                        <span style={{ fontWeight: 500 }}>
-                          {tx.amount} {tx.from} → {tx.to}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "var(--muted)",
-                            marginLeft: "12px",
-                          }}
-                        >
-                          {tx.time}
-                        </span>
-                      </div>
-                      <a
-                        href={`https://testnet.arcscan.app/tx/${tx.hash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="tx-hash"
-                      >
-                        {tx.hash.slice(0, 10)}...
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Pool Stats Sidebar */}
@@ -541,10 +501,7 @@ function PoolStatsSidebar() {
           {Number(formatUnits(fee, 10)).toFixed(4)}%
         </span>
       </div>
-      <div className="dex-list-item">
-        <span style={{ color: "var(--muted)", fontSize: "13px" }}>Pool Type</span>
-        <span className="dex-badge">StableSwap</span>
-      </div>
+
     </div>
   );
 }

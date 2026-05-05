@@ -4,6 +4,7 @@ import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 import { Providers } from "./providers";
 import { DynamicBackground } from "@/components/DynamicBackground";
+import { Disclaimer } from "@/components/Disclaimer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Radius DEX — Stablecoin Swaps on Arc Network",
-  description: "Decentralized stablecoin exchange powered by Radius StableSwap on Arc Testnet",
+  description: "Radius DEX — Decentralized stablecoin exchange on Arc Network",
   icons: { icon: "/icon.svg" },
 };
 
@@ -37,7 +38,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <DynamicBackground />
-        <Providers>{children}</Providers>
+        <Providers>
+          <div style={{ flex: 1 }}>{children}</div>
+          <div className="dex-container"><Disclaimer /></div>
+        </Providers>
       </body>
     </html>
   );

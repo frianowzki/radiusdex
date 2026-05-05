@@ -101,15 +101,6 @@ export default function HomePage() {
               <Link href="/swap" className="dex-btn" style={{ padding: "16px 36px", fontSize: "16px" }}>
                 Launch App →
               </Link>
-              <a
-                href="https://testnet.arcscan.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="dex-btn dex-btn-outline"
-                style={{ padding: "16px 36px", fontSize: "16px" }}
-              >
-                Learn More →
-              </a>
             </div>
           </section>
 
@@ -140,10 +131,7 @@ export default function HomePage() {
                 </div>
                 <div className="dex-stat-label">Pool Fee</div>
               </div>
-              <div className="dex-stat">
-                <div className="dex-stat-value">StableSwap</div>
-                <div className="dex-stat-label">Pool Type</div>
-              </div>
+
             </div>
           </section>
 

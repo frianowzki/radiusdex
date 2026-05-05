@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useRadiusAuth } from "@/lib/auth";
+import { SocialLoginButton } from "@/components/SocialLoginButton";
 
 const NAV_LINKS = [
   { href: "/swap", label: "SWAP" },
@@ -49,15 +50,7 @@ export default function Navbar() {
             </button>
           </div>
         ) : (
-          <div className="relative group">
-            <button onClick={() => login()} className="dex-btn-primary text-xs px-4 py-2">
-              Social Login
-            </button>
-            <div className="absolute right-0 top-full mt-2 w-64 p-3 rounded-xl text-xs text-[var(--muted)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50" style={{ background: "var(--card-bg)", backdropFilter: "var(--glass-blur)", border: "1px solid var(--card-border)", boxShadow: "0 8px 32px rgba(0,0,0,0.1)" }}>
-              <p className="font-semibold text-[var(--foreground)] mb-1">Embedded Wallet</p>
-              <p>Sign in with Google, email, GitHub, or Apple. Creates a secure wallet behind the scenes — no seed phrase needed.</p>
-            </div>
-          </div>
+          <SocialLoginButton method="modal" label="Social Login" />
         )}
         <ConnectButton
           chainStatus="icon"

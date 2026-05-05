@@ -63,7 +63,7 @@ export function TrustBar() {
 
           {/* Docs */}
           <a
-            href="https://lunex.finance/docs"
+            href="https://docs.arc.network"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
