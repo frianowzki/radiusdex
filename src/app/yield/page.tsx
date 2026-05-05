@@ -202,7 +202,7 @@ export default function YieldPage() {
         <div className="dex-container">
           <h1
             style={{
-              fontSize: "32px",
+              fontSize: "clamp(24px, 6vw, 32px)",
               fontWeight: 700,
               marginBottom: "32px",
             }}
@@ -270,11 +270,8 @@ export default function YieldPage() {
                 </div>
 
                 <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "12px",
-                  }}
+                  className="dex-grid dex-grid-3"
+                  style={{ gap: "12px" }}
                 >
                   <div style={{ textAlign: "center" }}>
                     <div className="dex-stat-label">TVL</div>
@@ -413,7 +410,7 @@ export default function YieldPage() {
                 <div style={{ textAlign: "right", marginTop: "6px" }}>
                   <button
                     className="dex-btn dex-btn-sm dex-btn-outline"
-                    style={{ fontSize: "11px", padding: "4px 12px" }}
+                    style={{ fontSize: "12px", padding: "8px 16px" }}
                     onClick={() => {
                       if (vaultTab === "deposit") {
                         setAmount(formatUnits(tokenBalance, vault.token.decimals));

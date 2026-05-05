@@ -102,7 +102,7 @@ export default function StatsPage() {
         <div className="dex-container">
           <h1
             style={{
-              fontSize: "32px",
+              fontSize: "clamp(24px, 6vw, 32px)",
               fontWeight: 700,
               marginBottom: "32px",
             }}
@@ -438,7 +438,7 @@ export default function StatsPage() {
 
           {/* Footer */}
           <footer className="dex-footer">
-            <div className="dex-flex-between">
+            <div className="dex-flex-between" style={{ flexWrap: "wrap", gap: "8px" }}>
               <span className="dex-nav-logo">RADIUS DEX</span>
               <span style={{ fontSize: "13px", color: "var(--muted)" }}>
                 Data refreshed every 15 seconds • Arc Testnet
