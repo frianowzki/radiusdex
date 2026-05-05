@@ -1,14 +1,15 @@
 "use client";
 
 import { type ReactNode, useState, useEffect, useMemo } from "react";
-import { WagmiProvider, http, type Config } from "wagmi";
+import { WagmiProvider, http, type Config, createConfig } from "wagmi";
 import {
   RainbowKitProvider,
-  darkTheme,
+  lightTheme,
   getDefaultConfig,
 } from "@rainbow-me/rainbowkit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { arcTestnet } from "@/config/wagmi";
+import { RadiusAuthProvider } from "@/lib/auth";
 
 let cachedConfig: Config | null = null;
 
@@ -32,20 +33,22 @@ export function Providers({ children }: { children: ReactNode }) {
   if (!mounted) return null;
 
   return (
-    <WagmiProvider config={getConfig()}>
-      <QueryClientProvider client={new QueryClient()}>
-        <RainbowKitProvider
-          theme={darkTheme({
-            accentColor: "#3b82f6",
-            accentColorForeground: "white",
-            borderRadius: "large",
-            fontStack: "system",
-            overlayBlur: "small",
-          })}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <QueryClientProvider client={new QueryClient()}>
+      <RadiusAuthProvider>
+        <WagmiProvider config={getConfig()}>
+          <RainbowKitProvider
+            theme={lightTheme({
+              accentColor: "#3b82f6",
+              accentColorForeground: "white",
+              borderRadius: "large",
+              fontStack: "system",
+              overlayBlur: "small",
+            })}
+          >
+            {children}
+          </RainbowKitProvider>
+        </WagmiProvider>
+      </RadiusAuthProvider>
+    </QueryClientProvider>
   );
 }
