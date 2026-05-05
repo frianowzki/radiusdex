@@ -88,6 +88,22 @@ export default function SwapPage() {
     ? (quoteAmount * (BigInt(10000) - SLIPPAGE_BPS)) / BigInt(10000)
     : BigInt(0);
 
+  // Pool stats
+  const { data: poolData } = useReadContracts({
+    contracts: [
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(0)] },
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(1)] },
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "fee" },
+    ],
+    query: { refetchInterval: 15000 },
+  });
+
+  const usdcReserve = (poolData?.[0]?.result as bigint) ?? BigInt(0);
+  const eurcReserve = (poolData?.[1]?.result as bigint) ?? BigInt(0);
+  const feeRaw = (poolData?.[2]?.result as bigint) ?? BigInt(0);
+  const totalLiquidity = Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
+  const feePercent = Number(formatUnits(feeRaw, 10));
+
   // Write hooks
   const {
     mutateAsync: writeContract,
@@ -134,9 +150,7 @@ export default function SwapPage() {
           functionName: "approve",
           args: [POOL_ADDRESS, parsedAmount],
         });
-        // Wait a bit then swap
         setTxHash(approveHash);
-        // The approval tx will complete, then we swap
         return;
       }
 
@@ -172,7 +186,6 @@ export default function SwapPage() {
 
   useEffect(() => {
     if (approvalSuccess && needsApproval === false && parsedAmount && parsedAmount > BigInt(0)) {
-      // Approval done, now do the swap
       const doSwap = async () => {
         try {
           const swapHash = await writeContract({
@@ -199,7 +212,6 @@ export default function SwapPage() {
     const tmp = fromToken;
     setFromToken(toToken);
     setToToken(tmp);
-    // preserve amount — quote will recalc via get_dy
   };
 
   const isProcessing = isWritePending || isConfirming;
@@ -209,234 +221,186 @@ export default function SwapPage() {
       <Navbar />
       <div className="dex-page">
         <div className="dex-container">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 360px",
-              gap: "32px",
-              maxWidth: "900px",
-              margin: "0 auto",
-            }}
-          >
-            {/* Swap Widget */}
-            <div>
-              <div className="dex-card" style={{ maxWidth: "520px" }}>
-                <div className="dex-flex-between" style={{ marginBottom: "24px" }}>
-                  <h2 style={{ fontSize: "20px", fontWeight: 700 }}>Swap</h2>
-                  <HistoryIcon
-                    entries={txHistory.map((tx) => ({ hash: tx.hash, label: `${tx.from} → ${tx.to} · ${tx.amount}`, time: tx.time }))}
-                    title="Swap History"
-                  />
+
+          {/* Pool Stats Bar */}
+          <div className="pool-stats-bar">
+            <div className="pool-stats-bar-item">
+              <span className="pool-stats-bar-label">Pool</span>
+              <span className="pool-stats-bar-value">
+                ${totalLiquidity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="pool-stats-bar-divider" />
+            <div className="pool-stats-bar-item">
+              <span className="pool-stats-bar-label">Fee</span>
+              <span className="pool-stats-bar-value">{feePercent.toFixed(4)}%</span>
+            </div>
+            <div className="pool-stats-bar-divider" />
+            <div className="pool-stats-bar-item" style={{ marginLeft: "auto" }}>
+              <HistoryIcon
+                entries={txHistory.map((tx) => ({ hash: tx.hash, label: `${tx.from} → ${tx.to} · ${tx.amount}`, time: tx.time }))}
+                title="Swap History"
+              />
+            </div>
+          </div>
+
+          {/* Swap Card */}
+          <div className="swap-card">
+            <h1 className="swap-title">swap</h1>
+
+            {/* Token Pair */}
+            <div className="swap-section-label">TOKEN PAIR</div>
+            <div className="swap-token-pair">
+              <div className="swap-token-box" onClick={() => {
+                const next = TOKENS.find((t) => t.index !== fromToken.index);
+                if (next) { setFromToken(next); if (next.index === toToken.index) setToToken(fromToken); }
+              }}>
+                <div className="swap-token-icon" style={{ background: fromToken.color }}>
+                  {fromToken.symbol.charAt(0)}
                 </div>
+                <div className="swap-token-name">{fromToken.symbol}</div>
+                <div className="swap-token-role">From</div>
+              </div>
 
-                {/* FROM */}
-                <div style={{ marginBottom: "4px" }}>
-                  <div
-                    className="dex-flex-between"
-                    style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}
-                  >
-                    <span>From</span>
-                    <span>
-                      Balance:{" "}
-                      {fromBalance !== undefined
-                        ? Number(
-                            formatUnits(fromBalance, fromToken.decimals)
-                          ).toFixed(4)
-                        : "—"}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div className="token-badge" onClick={() => {
-                      const next = TOKENS.find((t) => t.index !== fromToken.index);
-                      if (next) { setFromToken(next); if (next.index === toToken.index) setToToken(fromToken); }
-                    }}>
-                      <div
-                        className="token-logo"
-                        style={{ background: fromToken.color }}
-                      >
-                        {fromToken.symbol.charAt(0)}
-                      </div>
-                      <span style={{ fontWeight: 600 }}>{fromToken.symbol}</span>
-                      <span style={{ color: "var(--muted)", fontSize: "12px" }}>▼</span>
-                    </div>
-                    <input
-                      className="dex-input"
-                      type="text"
-                      placeholder="0.00"
-                      value={fromAmount}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "" || /^\d*\.?\d*$/.test(v)) setFromAmount(v);
-                      }}
-                      style={{ flex: 1, textAlign: "right" }}
-                    />
-                  </div>
-                  {fromBalance !== undefined && (
-                    <div style={{ textAlign: "right", marginTop: "6px" }}>
-                      <button
-                        className="dex-btn dex-btn-sm dex-btn-outline"
-                        style={{ fontSize: "11px", padding: "4px 12px" }}
-                        onClick={() =>
-                          setFromAmount(
-                            formatUnits(fromBalance, fromToken.decimals)
-                          )
-                        }
-                      >
-                        MAX
-                      </button>
-                    </div>
-                  )}
+              <button type="button" className="swap-direction-btn" onClick={handleSwitchTokens}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M7 16l-4-4 4-4" />
+                  <path d="M17 8l4 4-4 4" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                </svg>
+              </button>
+
+              <div className="swap-token-box" onClick={() => {
+                const next = TOKENS.find((t) => t.index !== toToken.index);
+                if (next) { setToToken(next); if (next.index === fromToken.index) setFromToken(toToken); }
+              }}>
+                <div className="swap-token-icon" style={{ background: toToken.color }}>
+                  {toToken.symbol.charAt(0)}
                 </div>
-
-                {/* Arrow */}
-                <div
-                  className="swap-arrow"
-                  onClick={handleSwitchTokens}
-                  style={{ margin: "8px auto" }}
-                >
-                  ↓
-                </div>
-
-                {/* TO */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div
-                    className="dex-flex-between"
-                    style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}
-                  >
-                    <span>To</span>
-                    <span>
-                      Balance:{" "}
-                      {toBalance !== undefined
-                        ? Number(
-                            formatUnits(toBalance, toToken.decimals)
-                          ).toFixed(4)
-                        : "—"}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div className="token-badge" onClick={() => {
-                      const next = TOKENS.find((t) => t.index !== toToken.index);
-                      if (next) { setToToken(next); if (next.index === fromToken.index) setFromToken(toToken); }
-                    }}>
-                      <div
-                        className="token-logo"
-                        style={{ background: toToken.color }}
-                      >
-                        {toToken.symbol.charAt(0)}
-                      </div>
-                      <span style={{ fontWeight: 600 }}>{toToken.symbol}</span>
-                      <span style={{ color: "var(--muted)", fontSize: "12px" }}>▼</span>
-                    </div>
-                    <input
-                      className="dex-input"
-                      type="text"
-                      placeholder="0.00"
-                      value={
-                        quoteAmount && quoteAmount > BigInt(0)
-                          ? Number(
-                              formatUnits(quoteAmount, toToken.decimals)
-                            ).toFixed(6)
-                          : ""
-                      }
-                      readOnly
-                      style={{ flex: 1, textAlign: "right" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Quote Info */}
-                {quoteAmount && quoteAmount > BigInt(0) && (
-                  <div
-                    className="dex-card-sm"
-                    style={{ marginBottom: "20px", fontSize: "13px" }}
-                  >
-                    <div className="dex-list-item">
-                      <span style={{ color: "var(--muted)" }}>Rate</span>
-                      <span>
-                        1 {fromToken.symbol} ={" "}
-                        {(
-                          Number(
-                            formatUnits(quoteAmount, toToken.decimals)
-                          ) / Number(fromAmount || 1)
-                        ).toFixed(6)}{" "}
-                        {toToken.symbol}
-                      </span>
-                    </div>
-                    <div className="dex-list-item">
-                      <span style={{ color: "var(--muted)" }}>
-                        Min. received (1% slippage)
-                      </span>
-                      <span>
-                        {Number(
-                          formatUnits(minReceive, toToken.decimals)
-                        ).toFixed(6)}{" "}
-                        {toToken.symbol}
-                      </span>
-                    </div>
-                    <div className="dex-list-item">
-                      <span style={{ color: "var(--muted)" }}>Route</span>
-                      <span>
-                        {fromToken.symbol} → {toToken.symbol} (StableSwap)
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Button */}
-                {!isConnected ? (
-                  <button className="dex-btn dex-btn-full" disabled>
-                    Connect wallet to swap
-                  </button>
-                ) : !parsedAmount || parsedAmount <= BigInt(0) ? (
-                  <button className="dex-btn dex-btn-full" disabled>
-                    Enter an amount
-                  </button>
-                ) : (
-                  <button
-                    className="dex-btn dex-btn-full"
-                    disabled={
-                      !parsedAmount ||
-                      parsedAmount <= BigInt(0) ||
-                      isProcessing
-                    }
-                    onClick={handleSwap}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="spinner" />
-                        {isWritePending
-                          ? "Confirming..."
-                          : isConfirming
-                          ? "Processing..."
-                          : "Loading..."}
-                      </>
-                    ) : needsApproval ? (
-                      `Approve ${fromToken.symbol}`
-                    ) : (
-                      "Swap"
-                    )}
-                  </button>
-                )}
+                <div className="swap-token-name">{toToken.symbol}</div>
+                <div className="swap-token-role">To</div>
               </div>
             </div>
 
-            {/* Pool Stats Sidebar */}
-            <div>
-              <PoolStatsSidebar />
+            {/* Amount Input */}
+            <div className="swap-section-label">AMOUNT</div>
+            <div className="swap-amount-input-wrapper">
+              <input
+                className="swap-amount-input"
+                type="text"
+                placeholder="0.00"
+                value={fromAmount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^\d*\.?\d*$/.test(v)) setFromAmount(v);
+                }}
+              />
+              <div className="swap-amount-token">
+                <div className="swap-token-icon-sm" style={{ background: fromToken.color }}>
+                  {fromToken.symbol.charAt(0)}
+                </div>
+                {fromToken.symbol}
+              </div>
+            </div>
+
+            {/* Balance + MAX */}
+            {isConnected && (
+              <div className="swap-balance-row">
+                <span>
+                  Balance:{" "}
+                  {fromBalance !== undefined
+                    ? Number(formatUnits(fromBalance, fromToken.decimals)).toFixed(4)
+                    : "—"}
+                </span>
+                {fromBalance !== undefined && (
+                  <button
+                    type="button"
+                    className="swap-max-btn"
+                    onClick={() => setFromAmount(formatUnits(fromBalance, fromToken.decimals))}
+                  >
+                    MAX
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Quote Info */}
+            {quoteAmount && quoteAmount > BigInt(0) && (
+              <div className="swap-quote-info">
+                <div className="swap-quote-row">
+                  <span>You receive</span>
+                  <span className="swap-quote-receive">
+                    {Number(formatUnits(quoteAmount, toToken.decimals)).toFixed(6)} {toToken.symbol}
+                  </span>
+                </div>
+                <div className="swap-quote-row">
+                  <span>Rate</span>
+                  <span>1 {fromToken.symbol} = {(Number(formatUnits(quoteAmount, toToken.decimals)) / Number(fromAmount || 1)).toFixed(6)} {toToken.symbol}</span>
+                </div>
+                <div className="swap-quote-row">
+                  <span>Min. received (1% slippage)</span>
+                  <span>{Number(formatUnits(minReceive, toToken.decimals)).toFixed(6)} {toToken.symbol}</span>
+                </div>
+                <div className="swap-quote-row">
+                  <span>Route</span>
+                  <span>{fromToken.symbol} → {toToken.symbol} (StableSwap)</span>
+                </div>
+              </div>
+            )}
+
+            {/* Action Button */}
+            <div className="swap-action">
+              {!isConnected ? (
+                <button className="swap-submit-btn" disabled>
+                  Connect wallet to swap
+                </button>
+              ) : !parsedAmount || parsedAmount <= BigInt(0) ? (
+                <button className="swap-submit-btn" disabled>
+                  Enter an amount to see a quote
+                </button>
+              ) : (
+                <button
+                  className="swap-submit-btn"
+                  disabled={!parsedAmount || parsedAmount <= BigInt(0) || isProcessing}
+                  onClick={handleSwap}
+                >
+                  {isProcessing ? (
+                    <>
+                      <span className="spinner" />
+                      {isWritePending ? "Confirming..." : isConfirming ? "Processing..." : "Loading..."}
+                    </>
+                  ) : needsApproval ? (
+                    `Approve ${fromToken.symbol}`
+                  ) : (
+                    "Swap"
+                  )}
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Your Positions */}
+          {isConnected && toBalance !== undefined && (
+            <div className="swap-positions">
+              <div className="swap-positions-title">Your Positions</div>
+              <div className="swap-positions-grid">
+                <div className="swap-position-card">
+                  <div className="swap-position-label">{fromToken.symbol} Balance</div>
+                  <div className="swap-position-value">
+                    {fromBalance !== undefined
+                      ? Number(formatUnits(fromBalance, fromToken.decimals)).toFixed(4)
+                      : "0.0000"}
+                  </div>
+                </div>
+                <div className="swap-position-card">
+                  <div className="swap-position-label">{toToken.symbol} Balance</div>
+                  <div className="swap-position-value">
+                    {Number(formatUnits(toBalance, toToken.decimals)).toFixed(4)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Trust Bar */}
           <div style={{ marginTop: 32 }}>
@@ -445,67 +409,5 @@ export default function SwapPage() {
         </div>
       </div>
     </>
-  );
-}
-
-function PoolStatsSidebar() {
-  const { data } = useReadContracts({
-    contracts: [
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "balances",
-        args: [BigInt(0)],
-      },
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "balances",
-        args: [BigInt(1)],
-      },
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "fee",
-      },
-    ],
-    query: { refetchInterval: 15000 },
-  });
-
-  const usdcReserve = (data?.[0]?.result as bigint) ?? BigInt(0);
-  const eurcReserve = (data?.[1]?.result as bigint) ?? BigInt(0);
-  const fee = (data?.[2]?.result as bigint) ?? BigInt(0);
-
-  return (
-    <div className="dex-card">
-      <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "20px" }}>
-        Pool Stats
-      </h3>
-      <div className="dex-list-item">
-        <span style={{ color: "var(--muted)", fontSize: "13px" }}>USDC Reserve</span>
-        <span style={{ fontFamily: "var(--font-geist-mono, monospace)", fontSize: "14px" }}>
-          ${Number(formatUnits(usdcReserve, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </span>
-      </div>
-      <div className="dex-list-item">
-        <span style={{ color: "var(--muted)", fontSize: "13px" }}>EURC Reserve</span>
-        <span style={{ fontFamily: "var(--font-geist-mono, monospace)", fontSize: "14px" }}>
-          €{Number(formatUnits(eurcReserve, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </span>
-      </div>
-      <div className="dex-list-item">
-        <span style={{ color: "var(--muted)", fontSize: "13px" }}>Total Liquidity</span>
-        <span style={{ fontFamily: "var(--font-geist-mono, monospace)", fontSize: "14px" }}>
-          ${(Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6))).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-        </span>
-      </div>
-      <div className="dex-list-item">
-        <span style={{ color: "var(--muted)", fontSize: "13px" }}>Pool Fee</span>
-        <span style={{ fontFamily: "var(--font-geist-mono, monospace)", fontSize: "14px" }}>
-          {Number(formatUnits(fee, 10)).toFixed(4)}%
-        </span>
-      </div>
-
-    </div>
   );
 }
