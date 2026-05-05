@@ -3,9 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useRadiusAuth } from "@/lib/auth";
-import { SocialLoginButton } from "@/components/SocialLoginButton";
+import { ConnectButton } from "@/components/ConnectButton";
 
 const NAV_LINKS = [
   { href: "/swap", label: "SWAP" },
@@ -17,7 +15,6 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { authenticated, user, login, logout } = useRadiusAuth();
 
   return (
     <nav className="dex-nav">
@@ -39,24 +36,7 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-3">
-        {authenticated ? (
-          <div className="flex items-center gap-2">
-            <div className="dex-badge" style={{ background: "rgba(34,197,94,0.1)", color: "#22c55e", borderColor: "rgba(34,197,94,0.2)" }}>
-              <span className="status-dot" style={{ marginRight: 4 }} />
-              {user?.name ?? "Embedded wallet"}
-            </div>
-            <button onClick={() => logout()} className="dex-btn-ghost text-xs">
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <SocialLoginButton method="modal" label="Social Login" />
-        )}
-        <ConnectButton
-          chainStatus="icon"
-          showBalance={false}
-          accountStatus="address"
-        />
+        <ConnectButton />
       </div>
     </nav>
   );
