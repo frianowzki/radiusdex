@@ -8,6 +8,7 @@ import { useRadiusAuth } from "@/lib/auth";
 
 const NAV_LINKS = [
   { href: "/swap", label: "SWAP" },
+  { href: "/bridge", label: "BRIDGE" },
   { href: "/pool", label: "POOL" },
   { href: "/yield", label: "YIELD" },
   { href: "/stats", label: "STATS" },
