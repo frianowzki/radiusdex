@@ -63,6 +63,7 @@ export default function HomePage() {
             style={{ textAlign: "center", paddingTop: "80px", paddingBottom: "60px" }}
           >
             <h1
+              className="hero-title-lg"
               style={{
                 fontSize: "72px",
                 fontWeight: 800,
@@ -123,7 +124,7 @@ export default function HomePage() {
           {/* Stats Row — centered 3 columns */}
           <section className="dex-section">
             <div
-              className="dex-card"
+              className="dex-card home-stats-grid"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",

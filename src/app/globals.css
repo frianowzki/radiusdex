@@ -634,6 +634,25 @@ body {
   .dex-container { padding: 0 16px; }
   .history-panel { width: 280px; }
   .pool-stats-grid, .yield-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .pool-stats-bar-divider { display: none; }
+  .pool-stats-bar-item { margin-left: 0 !important; }
+  .dex-card { padding: 20px; }
+  .dex-card-sm { padding: 14px; }
+  .dex-stat-value { font-size: 22px; }
+  .dex-stat { padding: 12px; }
+  .dex-footer { flex-direction: column; gap: 8px; text-align: center; }
+  .connect-dropdown { right: -16px; width: min(240px, calc(100vw - 32px)); }
+  .bridge-chain-grid { grid-template-columns: 1fr !important; }
+  .bridge-chain-grid .swap-arrow { transform: rotate(90deg); margin: 0 auto; }
+  .pool-position-grid { grid-template-columns: 1fr !important; }
+  .home-stats-grid { grid-template-columns: 1fr !important; }
+  .yield-staking-status { flex-direction: column !important; gap: 16px !important; align-items: stretch !important; text-align: center; }
+  .bridge-recipient-toggle { flex-wrap: wrap; gap: 4px; }
+  .hero-title-lg { font-size: 36px !important; }
+  .hero-title-md { font-size: 28px !important; }
+  .page-title-lg { font-size: 24px !important; }
+  .dex-section-title { font-size: 12px; }
+  .swap-submit-btn { padding: 14px; font-size: 15px; }
 }
 
 /* ===== HAMBURGER MENU ===== */

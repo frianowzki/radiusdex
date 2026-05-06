@@ -216,7 +216,7 @@ export default function BridgePage() {
             </div>
 
             {/* Chain selector */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
+            <div className="bridge-chain-grid" style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
               <button type="button" onClick={() => setShowFromPicker(true)} className="dex-card-sm" style={{ cursor: "pointer", textAlign: "center" }}>
                 <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>From</p>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -250,7 +250,7 @@ export default function BridgePage() {
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)" }}>Recipient</label>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="bridge-recipient-toggle" style={{ display: "flex", gap: 6 }}>
                   <button
                     type="button"
                     onClick={() => setSendToSelf(true)}

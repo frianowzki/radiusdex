@@ -65,7 +65,7 @@ export default function StatsPage() {
       <Navbar />
       <div className="dex-page">
         <div className="dex-container">
-          <h1 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Protocol Statistics</h1>
+          <h1 className="page-title-lg" style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Protocol Statistics</h1>
 
           {/* Protocol Analytics */}
           <section className="dex-section">

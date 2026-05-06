@@ -114,7 +114,7 @@ export default function YieldPage() {
       <div className="dex-page">
         <div className="dex-container">
           <section style={{ textAlign: "center", paddingTop: "40px", paddingBottom: "32px" }}>
-            <h1 style={{ fontSize: "48px", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1, background: "linear-gradient(135deg, #f1f5f9 0%, #60a5fa 40%, #a78bfa 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+            <h1 className="hero-title-md" style={{ fontSize: "48px", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1, background: "linear-gradient(135deg, #f1f5f9 0%, #60a5fa 40%, #a78bfa 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
               Provide Liquidity. Earn RAD.
             </h1>
             <p style={{ fontSize: "18px", color: "var(--muted)", marginTop: "16px", maxWidth: "520px", margin: "16px auto 0", lineHeight: 1.6 }}>
@@ -150,7 +150,7 @@ export default function YieldPage() {
           </div>
 
           {isConnected && userStaked > BigInt(0) && (
-            <div style={{
+            <div className="yield-staking-status" style={{
               maxWidth: "520px", margin: "0 auto 24px",
               background: "linear-gradient(135deg, rgba(37,99,235,0.06), rgba(139,92,246,0.06))",
               border: "1px solid rgba(37,99,235,0.15)",

@@ -135,7 +135,7 @@ export default function PoolPage() {
       <Navbar />
       <div className="dex-page">
         <div className="dex-container">
-          <h1 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Pool</h1>
+          <h1 className="page-title-lg" style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Pool</h1>
 
           <div className="dex-card dex-section">
             <div className="dex-flex-between" style={{ marginBottom: "20px" }}>
@@ -247,7 +247,7 @@ export default function PoolPage() {
             {isConnected && lpBalance > BigInt(0) && (
               <div className="dex-card" style={{ marginTop: "24px", padding: "20px" }}>
                 <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>Your Position</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                <div className="pool-position-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your LP Balance</div>
                     <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
