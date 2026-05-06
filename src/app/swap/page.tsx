@@ -29,32 +29,13 @@ import {
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
+import { ChainLogo } from "@/components/ChainLogo";
 import { useRadiusAuth } from "@/lib/auth";
 
 type SwapMode = "same-chain" | "crosschain";
 type CrosschainStatus = "idle" | "swapping" | "bridging" | "success" | "error";
 
 const ALL_CHAINS = Object.keys(CHAIN_METADATA) as CrosschainChain[];
-
-const CHAIN_ICONS: Record<string, string> = {
-  Arc_Testnet: "A",
-  Ethereum_Sepolia: "E",
-  Base_Sepolia: "B",
-  Arbitrum_Sepolia: "A",
-  Avalanche_Fuji: "AV",
-  Optimism_Sepolia: "O",
-  Polygon_Amoy_Testnet: "P",
-  Linea_Sepolia: "L",
-  Unichain_Sepolia: "U",
-  World_Chain_Sepolia: "W",
-  Ink_Testnet: "I",
-  Monad_Testnet: "M",
-  HyperEVM_Testnet: "H",
-  Plume_Testnet: "PL",
-  Sei_Testnet: "S",
-  XDC_Apothem: "X",
-  Codex_Testnet: "C",
-};
 
 export default function SwapPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -302,15 +283,15 @@ export default function SwapPage() {
         <div className="glass-modal" onClick={(e) => e.stopPropagation()}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>Select chain</h3>
-            <button onClick={onClose} className="dex-btn-ghost" style={{ padding: 8 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            <button onClick={onClose} className="modal-close-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
           {ALL_CHAINS.filter((c) => c !== exclude).map((chain) => (
-            <button key={chain} onClick={() => { onSelect(chain); onClose(); }} className="mobile-menu-link" style={{ cursor: "pointer", border: "none", width: "100%", textAlign: "left" }}>
-              <div className="token-logo" style={{ background: "var(--brand)", fontSize: 10, width: 28, height: 28, marginRight: 12 }}>{CHAIN_ICONS[chain]}</div>
+            <button key={chain} onClick={() => { onSelect(chain); onClose(); }} className="chain-picker-row" style={{ marginBottom: 6 }}>
+              <ChainLogo chainKey={chain} size={32} />
               <div>
-                <div style={{ fontWeight: 600 }}>{CHAIN_METADATA[chain].label}</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[chain].label}</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>Chain ID: {CHAIN_METADATA[chain].chainId}</div>
               </div>
             </button>
@@ -419,7 +400,7 @@ export default function SwapPage() {
                 <button type="button" onClick={() => setShowSourcePicker(true)} className="dex-card-sm" style={{ cursor: "pointer", textAlign: "center", padding: 14 }}>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>From</div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <div className="token-logo" style={{ background: "var(--brand)", fontSize: 10, width: 24, height: 24 }}>{CHAIN_ICONS[sourceChain]}</div>
+                    <ChainLogo chainKey={sourceChain} size={24} />
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{sourceMeta.label}</span>
                   </div>
                 </button>
@@ -429,7 +410,7 @@ export default function SwapPage() {
                 <button type="button" onClick={() => setShowDestPicker(true)} className="dex-card-sm" style={{ cursor: "pointer", textAlign: "center", padding: 14 }}>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 6 }}>To</div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                    <div className="token-logo" style={{ background: "var(--purple)", fontSize: 10, width: 24, height: 24 }}>{CHAIN_ICONS[destChain]}</div>
+                    <ChainLogo chainKey={destChain} size={24} />
                     <span style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[destChain].label}</span>
                   </div>
                 </button>

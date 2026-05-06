@@ -6,6 +6,7 @@ import { parseUnits, isAddress } from "viem";
 import type { EIP1193Provider } from "viem";
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
+import { ChainLogo } from "@/components/ChainLogo";
 import { ERC20_ABI } from "@/config/contracts";
 import {
   CHAIN_METADATA,
@@ -18,26 +19,6 @@ import { useRadiusAuth } from "@/lib/auth";
 type BridgeStatus = "idle" | "estimating" | "approving" | "burning" | "attesting" | "minting" | "success" | "error";
 
 const ALL_CHAINS = Object.keys(CHAIN_METADATA) as CrosschainChain[];
-
-const CHAIN_ICONS: Record<string, string> = {
-  Arc_Testnet: "A",
-  Ethereum_Sepolia: "E",
-  Base_Sepolia: "B",
-  Arbitrum_Sepolia: "A",
-  Avalanche_Fuji: "AV",
-  Optimism_Sepolia: "O",
-  Polygon_Amoy_Testnet: "P",
-  Linea_Sepolia: "L",
-  Unichain_Sepolia: "U",
-  World_Chain_Sepolia: "W",
-  Ink_Testnet: "I",
-  Monad_Testnet: "M",
-  HyperEVM_Testnet: "H",
-  Plume_Testnet: "PL",
-  Sei_Testnet: "S",
-  XDC_Apothem: "X",
-  Codex_Testnet: "C",
-};
 
 export default function BridgePage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -187,32 +168,23 @@ export default function BridgePage() {
   function ChainPicker({ open, onClose, onSelect, exclude }: { open: boolean; onClose: () => void; onSelect: (c: CrosschainChain) => void; exclude?: CrosschainChain }) {
     if (!open) return null;
     return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-        <div className="dex-card" style={{ maxWidth: 420, width: "90%", maxHeight: "60vh", overflow: "auto", padding: 28 }} onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center mb-4">
+      <div className="glass-modal-overlay" onClick={onClose}>
+        <div className="glass-modal" onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ fontSize: 16, fontWeight: 700 }}>Select chain</h3>
-            <button onClick={onClose} className="dex-btn-ghost" style={{ padding: 6 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <button onClick={onClose} className="modal-close-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
-          <div className="space-y-1">
-            {ALL_CHAINS.filter((c) => c !== exclude).map((chain) => (
-              <button
-                key={chain}
-                onClick={() => { onSelect(chain); onClose(); }}
-                className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors"
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--foreground)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.06)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <div className="token-logo" style={{ background: "var(--brand)", fontSize: 11 }}>{CHAIN_ICONS[chain]}</div>
-                <div>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[chain].label}</span>
-                  <span className="text-xs text-[var(--muted)] block">Chain ID: {CHAIN_METADATA[chain].chainId}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+          {ALL_CHAINS.filter((c) => c !== exclude).map((chain) => (
+            <button key={chain} onClick={() => { onSelect(chain); onClose(); }} className="chain-picker-row" style={{ marginBottom: 6 }}>
+              <ChainLogo chainKey={chain} size={32} />
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[chain].label}</span>
+                <span className="text-xs text-[var(--muted)] block">Chain ID: {CHAIN_METADATA[chain].chainId}</span>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -239,7 +211,7 @@ export default function BridgePage() {
               <button type="button" onClick={() => setShowFromPicker(true)} className="dex-card-sm text-center" style={{ cursor: "pointer" }}>
                 <p className="text-xs text-[var(--muted)] mb-1">From</p>
                 <div className="flex items-center justify-center gap-2">
-                  <div className="token-logo" style={{ background: "var(--brand)", fontSize: 10, width: 24, height: 24 }}>{CHAIN_ICONS[fromChain]}</div>
+                  <ChainLogo chainKey={fromChain} size={24} />
                   <span className="text-sm font-bold">{sourceMeta.label}</span>
                 </div>
               </button>
@@ -249,7 +221,7 @@ export default function BridgePage() {
               <button type="button" onClick={() => setShowToPicker(true)} className="dex-card-sm text-center" style={{ cursor: "pointer" }}>
                 <p className="text-xs text-[var(--muted)] mb-1">To</p>
                 <div className="flex items-center justify-center gap-2">
-                  <div className="token-logo" style={{ background: "var(--purple)", fontSize: 10, width: 24, height: 24 }}>{CHAIN_ICONS[toChain]}</div>
+                  <ChainLogo chainKey={toChain} size={24} />
                   <span className="text-sm font-bold">{destMeta.label}</span>
                 </div>
               </button>

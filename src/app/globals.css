@@ -955,3 +955,154 @@ body {
   .swap-amount-input { font-size: 20px; }
   .pool-stats-bar { flex-wrap: wrap; gap: 8px; padding: 8px 14px; }
 }
+
+/* ─── Frosted Glass Modals ─── */
+
+.glass-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: modalFadeIn 200ms ease-out;
+}
+
+.glass-modal {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 420px;
+  width: 100%;
+  max-height: 70vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  box-shadow: 0 8px 32px rgba(30, 58, 138, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  animation: sheetSlideUp 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-modal::-webkit-scrollbar { display: none; }
+
+/* Sheet-style modal (bottom-aligned) */
+.glass-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  animation: modalFadeIn 200ms ease-out;
+}
+
+.glass-sheet {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px 24px 0 0;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 78svh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  box-shadow: 0 -8px 32px rgba(30, 58, 138, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  animation: sheetSlideUp 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.glass-sheet::-webkit-scrollbar { display: none; }
+
+/* Close button */
+.modal-close-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 22, 43, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  color: #6b7280;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+}
+
+/* Chain picker row */
+.chain-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(27, 22, 43, 0.06);
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+  text-align: left;
+  color: var(--foreground);
+}
+.chain-picker-row:hover {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.15);
+}
+.chain-picker-row:active {
+  transform: scale(0.98);
+}
+.chain-picker-row.is-selected {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(37, 99, 235, 0.08);
+}
+
+/* Animations */
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheetSlideUp {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Smooth scroll + no text select on buttons */
+html { scroll-behavior: smooth; }
+button, nav, .swap-direction-btn, .dex-btn, .dex-tab { user-select: none; -webkit-user-select: none; }
+
+/* Button tap feedback */
+.dex-btn, .dex-btn-ghost, .swap-submit-btn {
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.dex-btn:active, .swap-submit-btn:active {
+  transform: scale(0.97);
+}
+
+/* Chain logo in selector */
+.chain-logo-circle {
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Success fade in */
+.success-fade-in {
+  animation: successFade 400ms ease-out;
+}
+@keyframes successFade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
