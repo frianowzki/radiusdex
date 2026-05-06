@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useAccount, useWriteContract as useWagmiWrite, useWaitForTransactionReceipt } from "wagmi";
 import type { Abi, Address } from "viem";
-import { createWalletClient, custom } from "viem";
+import { createWalletClient, custom, encodeFunctionData } from "viem";
 import { arcTestnet } from "@/config/wagmi";
 import { useRadiusAuth } from "@/lib/auth";
 
@@ -35,15 +35,22 @@ export function useWriteContractCompat() {
 
         if (authenticated && privyProvider) {
           // Use Privy provider directly via viem
+          // Encode function data and use eth_sendTransaction explicitly
           const client = createWalletClient({
             chain: arcTestnet,
             transport: custom(privyProvider as import("viem").EIP1193Provider),
           });
           const [account] = await client.getAddresses();
-          const hash = await client.writeContract({
-            ...args,
+          const data = encodeFunctionData({
+            abi: args.abi,
+            functionName: args.functionName,
+            args: args.args as readonly unknown[] | undefined,
+          });
+          const hash = await client.sendTransaction({
+            to: args.address,
+            data,
             account,
-          } as Parameters<typeof client.writeContract>[0]);
+          });
           setTxHash(hash);
           return hash;
         }
