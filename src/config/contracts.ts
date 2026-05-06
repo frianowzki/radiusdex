@@ -1,8 +1,8 @@
 // Contract Addresses (Arc Testnet)
-export const POOL_ADDRESS = "0xC24BFc8e4b10500a72A63Bec98CCC989CbDA41d8" as const;
-export const LP_TOKEN_ADDRESS = "0x9fD18A3dCbcb8238f7426E888bA73aFfbF9F3b69" as const;
-export const USDC_VAULT_ADDRESS = "0x66CF9CA9D75FD62438C6E254bA35E61775EF9496" as const;
-export const EURC_VAULT_ADDRESS = "0xcF2C839B12ECf6D9eEcd4607521B73fcFb7E8713" as const;
+export const POOL_ADDRESS = "0xB5c9D0E8BB480656F53f586d0e8c1579E1abFef1" as const;
+export const LP_TOKEN_ADDRESS = "0xb3958c9956a63047EE0A246f92A5eC9E404cdb8f" as const;
+export const USDC_VAULT_ADDRESS = "0xbE6908582DBCCCC4ac1E9B395A8495a862A2E3EF" as const;
+export const EURC_VAULT_ADDRESS = "0x15c78Fb6064060502B8d82e828dD4AA0b2258351" as const;
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 export const EURC_ADDRESS = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a" as const;
 
@@ -153,16 +153,44 @@ export const ERC20_ABI = [
 // Vault ABI (standard vault deposit/withdraw)
 export const VAULT_ABI = [
   {
-    inputs: [{ name: "amount", type: "uint256" }],
+    inputs: [
+      { name: "assets", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
     name: "deposit",
-    outputs: [],
+    outputs: [{ name: "shares", type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [{ name: "shares", type: "uint256" }],
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
+    name: "mint",
+    outputs: [{ name: "assets", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "assets", type: "uint256" },
+      { name: "receiver", type: "address" },
+      { name: "owner", type: "address" },
+    ],
     name: "withdraw",
-    outputs: [],
+    outputs: [{ name: "shares", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "receiver", type: "address" },
+      { name: "owner", type: "address" },
+    ],
+    name: "redeem",
+    outputs: [{ name: "assets", type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function",
   },
@@ -181,15 +209,43 @@ export const VAULT_ABI = [
     type: "function",
   },
   {
-    inputs: [],
+    inputs: [{ name: "shares", type: "uint256" }],
     name: "convertToAssets",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
   {
+    inputs: [{ name: "assets", type: "uint256" }],
+    name: "convertToShares",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "assets", type: "uint256" }],
+    name: "previewDeposit",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [{ name: "shares", type: "uint256" }],
-    name: "convertToAssets",
+    name: "previewMint",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "assets", type: "uint256" }],
+    name: "previewWithdraw",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ name: "shares", type: "uint256" }],
+    name: "previewRedeem",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
@@ -198,6 +254,13 @@ export const VAULT_ABI = [
     inputs: [{ name: "account", type: "address" }],
     name: "balanceOf",
     outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "asset",
+    outputs: [{ name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },

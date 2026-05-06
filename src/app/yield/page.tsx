@@ -171,7 +171,7 @@ export default function YieldPage() {
           address: vault.vaultAddress,
           abi: VAULT_ABI,
           functionName: "deposit",
-          args: [parsed],
+          args: [parsed, address],
         });
         setTxHash(h);
       } else {
@@ -186,7 +186,7 @@ export default function YieldPage() {
           address: vault.vaultAddress,
           abi: VAULT_ABI,
           functionName: "withdraw",
-          args: [sharesToBurn],
+          args: [parsed, address, address],
         });
         setTxHash(h);
       }
