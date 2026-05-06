@@ -41,6 +41,7 @@ export default function PoolPage() {
   const [removeCoinIndex, setRemoveCoinIndex] = useState(0);
 
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [pendingAction, setPendingAction] = useState<"approve" | "action" | null>(null);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; detail: string; time: string }[]
   >([]);
@@ -113,22 +114,27 @@ export default function PoolPage() {
 
   useEffect(() => {
     if (isSuccess && txHash) {
-      setTxHistory((prev) => [
-        {
-          hash: txHash,
-          action: tab === "add" ? "Add Liquidity" : "Remove Liquidity",
-          detail:
-            tab === "add"
-              ? `${usdcAmount} USDC + ${eurcAmount} EURC`
-              : `${lpAmount} LP`,
-          time: new Date().toLocaleTimeString(),
-        },
-        ...prev.slice(0, 9),
-      ]);
-      setUsdcAmount("");
-      setEurcAmount("");
-      setLpAmount("");
+      if (pendingAction === "action") {
+        // Actual liquidity action succeeded — clear amounts and log
+        setTxHistory((prev) => [
+          {
+            hash: txHash,
+            action: tab === "add" ? "Add Liquidity" : "Remove Liquidity",
+            detail:
+              tab === "add"
+                ? `${usdcAmount} USDC + ${eurcAmount} EURC`
+                : `${lpAmount} LP`,
+            time: new Date().toLocaleTimeString(),
+          },
+          ...prev.slice(0, 9),
+        ]);
+        setUsdcAmount("");
+        setEurcAmount("");
+        setLpAmount("");
+      }
+      // For approvals: just reset tx state, keep amounts so user can re-click
       setTxHash(undefined);
+      setPendingAction(null);
       resetWrite();
     }
   }, [isSuccess]);
@@ -146,6 +152,7 @@ export default function PoolPage() {
     try {
       // Check if USDC approval needed
       if (usdcAllowance < usdcParsed) {
+        setPendingAction("approve");
         const h = await writeContract({
           address: USDC_ADDRESS,
           abi: ERC20_ABI,
@@ -157,6 +164,7 @@ export default function PoolPage() {
       }
       // Check if EURC approval needed
       if (eurcAllowance < eurcParsed) {
+        setPendingAction("approve");
         const h = await writeContract({
           address: EURC_ADDRESS,
           abi: ERC20_ABI,
@@ -167,6 +175,7 @@ export default function PoolPage() {
         return;
       }
 
+      setPendingAction("action");
       const h = await writeContract({
         address: POOL_ADDRESS,
         abi: POOL_ABI,
@@ -185,6 +194,7 @@ export default function PoolPage() {
 
     try {
       if (removeMode === "dual") {
+        setPendingAction("action");
         const h = await writeContract({
           address: POOL_ADDRESS,
           abi: POOL_ABI,
@@ -193,6 +203,7 @@ export default function PoolPage() {
         });
         setTxHash(h);
       } else {
+        setPendingAction("action");
         const h = await writeContract({
           address: POOL_ADDRESS,
           abi: POOL_ABI,

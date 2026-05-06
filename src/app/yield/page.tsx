@@ -56,6 +56,7 @@ export default function YieldPage() {
   const [vaultTab, setVaultTab] = useState<VaultTab>("deposit");
   const [amount, setAmount] = useState("");
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [pendingAction, setPendingAction] = useState<"approve" | "action" | null>(null);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; vault: string; amount: string; time: string }[]
   >([]);
@@ -132,19 +133,22 @@ export default function YieldPage() {
   });
 
   useEffect(() => {
-    if (isSuccess && txHash && amount) {
-      setTxHistory((prev) => [
-        {
-          hash: txHash,
-          action: vaultTab === "deposit" ? "Deposit" : "Withdraw",
-          vault: vault.symbol,
-          amount: amount,
-          time: new Date().toLocaleTimeString(),
-        },
-        ...prev.slice(0, 9),
-      ]);
-      setAmount("");
+    if (isSuccess && txHash) {
+      if (pendingAction === "action") {
+        setTxHistory((prev) => [
+          {
+            hash: txHash,
+            action: vaultTab === "deposit" ? "Deposit" : "Withdraw",
+            vault: vault.symbol,
+            amount: amount,
+            time: new Date().toLocaleTimeString(),
+          },
+          ...prev.slice(0, 9),
+        ]);
+        setAmount("");
+      }
       setTxHash(undefined);
+      setPendingAction(null);
       resetWrite();
     }
   }, [isSuccess]);
@@ -158,6 +162,7 @@ export default function YieldPage() {
     try {
       if (vaultTab === "deposit") {
         if (allowance < parsed) {
+          setPendingAction("approve");
           const h = await writeContract({
             address: vault.token.address,
             abi: ERC20_ABI,
@@ -167,6 +172,7 @@ export default function YieldPage() {
           setTxHash(h);
           return;
         }
+        setPendingAction("action");
         const h = await writeContract({
           address: vault.vaultAddress,
           abi: VAULT_ABI,
@@ -175,13 +181,7 @@ export default function YieldPage() {
         });
         setTxHash(h);
       } else {
-        // Withdraw — burn shares for assets
-        // parsed is in underlying decimals; need to convert to shares
-        // Approximate: shares = amount * 1e18 / sharePrice
-        const sharesToBurn =
-          sharePrice > BigInt(0)
-            ? (parsed * BigInt(10 ** 18)) / sharePrice
-            : BigInt(0);
+        setPendingAction("action");
         const h = await writeContract({
           address: vault.vaultAddress,
           abi: VAULT_ABI,
