@@ -13,7 +13,7 @@ export const EURC_INDEX = 1;
 // Slippage
 export const SLIPPAGE_BPS = BigInt(100); // 1%
 
-// Pool ABI (StableSwap / Curve-style)
+// Pool ABI (Radius Swap / Curve-style)
 export const POOL_ABI = [
   {
     name: "exchange",

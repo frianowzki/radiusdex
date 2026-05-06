@@ -36,6 +36,7 @@ export default function BridgePage() {
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
   const [sendToSelf, setSendToSelf] = useState(true);
+  const [useForwarder, setUseForwarder] = useState(true);
   const [status, setStatus] = useState<BridgeStatus>("idle");
   const [error, setError] = useState("");
   const [txHash, setTxHash] = useState("");
@@ -50,9 +51,18 @@ export default function BridgePage() {
   const validRecipient = !!effectiveRecipient && isAddress(effectiveRecipient);
   const sourceUsdc = CHAIN_USDC_ADDRESSES[fromChain] as `0x${string}`;
 
+  // Embedded wallets (social login) always need forwarder
+  const isEmbeddedWallet = authenticated && !wagmiConnected;
+
+  // Auto-apply forwarder for embedded wallets
   useEffect(() => {
-    if (sendToSelf && address) setRecipient(address);
-  }, [address, sendToSelf]);
+    if (isEmbeddedWallet) setUseForwarder(true);
+  }, [isEmbeddedWallet]);
+
+  // Clear recipient when switching to "My wallet"
+  useEffect(() => {
+    if (sendToSelf && address) setRecipient("");
+  }, [sendToSelf, address]);
 
   useEffect(() => {
     if (!showFromPicker && !showToPicker) return;
@@ -121,7 +131,6 @@ export default function BridgePage() {
       const kitKey = process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY?.trim();
       if (!kitKey) throw new Error("Circle Kit key not configured.");
 
-      const useForwarder = true;
       const destination = useForwarder
         ? { chain: toChain, recipientAddress: effectiveRecipient, useForwarder: true as const }
         : { adapter, chain: toChain, recipientAddress: effectiveRecipient };
@@ -197,79 +206,191 @@ export default function BridgePage() {
         <div className="dex-card" style={{ padding: 36 }}>
           <form onSubmit={handleBridge} className="space-y-5">
             {/* Header */}
-            <div className="flex justify-between items-start">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[var(--brand)]">Cross-chain</p>
-                <h1 className="text-2xl font-black tracking-tight text-[var(--foreground)]">Bridge USDC</h1>
-                <p className="mt-1 text-xs text-[var(--muted)]">Circle CCTP · Any chain to any chain</p>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "var(--brand)" }}>Cross-chain</p>
+                <h1 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.02em" }}>Bridge USDC</h1>
+                <p style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>Circle CCTP · Any chain to any chain</p>
               </div>
               <HistoryIcon entries={history} title="Bridge History" />
             </div>
 
-            {/* Chain selector — popup style */}
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-              <button type="button" onClick={() => setShowFromPicker(true)} className="dex-card-sm text-center" style={{ cursor: "pointer" }}>
-                <p className="text-xs text-[var(--muted)] mb-1">From</p>
-                <div className="flex items-center justify-center gap-2">
+            {/* Chain selector */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
+              <button type="button" onClick={() => setShowFromPicker(true)} className="dex-card-sm" style={{ cursor: "pointer", textAlign: "center" }}>
+                <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>From</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <ChainLogo chainKey={fromChain} size={24} />
-                  <span className="text-sm font-bold">{sourceMeta.label}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{sourceMeta.label}</span>
                 </div>
               </button>
               <button type="button" onClick={switchDirection} className="swap-arrow">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M7 7h11"/><path d="m14 3 4 4-4 4"/><path d="M17 17H6"/><path d="m10 21-4-4 4-4"/></svg>
               </button>
-              <button type="button" onClick={() => setShowToPicker(true)} className="dex-card-sm text-center" style={{ cursor: "pointer" }}>
-                <p className="text-xs text-[var(--muted)] mb-1">To</p>
-                <div className="flex items-center justify-center gap-2">
+              <button type="button" onClick={() => setShowToPicker(true)} className="dex-card-sm" style={{ cursor: "pointer", textAlign: "center" }}>
+                <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>To</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                   <ChainLogo chainKey={toChain} size={24} />
-                  <span className="text-sm font-bold">{destMeta.label}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{destMeta.label}</span>
                 </div>
               </button>
             </div>
 
             {/* Amount */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Amount (USDC)</label>
-                <span className="text-xs text-[var(--muted)]">Balance: {formattedBalance}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)" }}>Amount (USDC)</label>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>Balance: {formattedBalance}</span>
               </div>
               <input type="text" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => { setAmount(e.target.value); setError(""); }} className="dex-input" style={{ fontSize: 24, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }} />
-              {!hasEnough && amount && validAmount && <p className="mt-2 text-xs text-red-500">Insufficient USDC balance.</p>}
+              {!hasEnough && amount && validAmount && <p style={{ marginTop: 8, fontSize: 12, color: "#ef4444" }}>Insufficient USDC balance.</p>}
             </div>
 
             {/* Recipient */}
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">Recipient</label>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setSendToSelf(true)} className={`text-xs px-2 py-1 rounded-lg transition-colors ${sendToSelf ? "bg-[var(--brand)] text-white" : "text-[var(--muted)]"}`} style={{ border: "none", cursor: "pointer" }}>My wallet</button>
-                  <button type="button" onClick={() => setSendToSelf(false)} className={`text-xs px-2 py-1 rounded-lg transition-colors ${!sendToSelf ? "bg-[var(--brand)] text-white" : "text-[var(--muted)]"}`} style={{ border: "none", cursor: "pointer" }}>Other address</button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)" }}>Recipient</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setSendToSelf(true)}
+                    style={{
+                      fontSize: 12,
+                      padding: "5px 14px",
+                      borderRadius: 10,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      transition: "all 0.15s",
+                      background: sendToSelf ? "rgba(255, 255, 255, 0.22)" : "rgba(255, 255, 255, 0.06)",
+                      backdropFilter: "blur(8px)",
+                      WebkitBackdropFilter: "blur(8px)",
+                      color: sendToSelf ? "#fff" : "var(--muted)",
+                      boxShadow: sendToSelf ? "0 0 0 1px rgba(255,255,255,0.18)" : "none",
+                    }}
+                  >
+                    My Wallet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSendToSelf(false)}
+                    style={{
+                      fontSize: 12,
+                      padding: "5px 14px",
+                      borderRadius: 10,
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: 600,
+                      transition: "all 0.15s",
+                      background: !sendToSelf ? "rgba(255, 255, 255, 0.22)" : "rgba(255, 255, 255, 0.06)",
+                      backdropFilter: "blur(8px)",
+                      WebkitBackdropFilter: "blur(8px)",
+                      color: !sendToSelf ? "#fff" : "var(--muted)",
+                      boxShadow: !sendToSelf ? "0 0 0 1px rgba(255,255,255,0.18)" : "none",
+                    }}
+                  >
+                    Other Address
+                  </button>
                 </div>
               </div>
               {!sendToSelf && (
                 <input type="text" placeholder="0x…" value={recipient} onChange={(e) => { setRecipient(e.target.value); setError(""); }} className="dex-input" style={{ fontSize: 14 }} />
               )}
               {sendToSelf && address && (
-                <div className="dex-card-sm text-xs text-[var(--muted)]" style={{ fontFamily: "var(--font-geist-mono, monospace)" }}>
+                <div style={{
+                  fontSize: 12,
+                  color: "var(--muted)",
+                  fontFamily: "var(--font-geist-mono, monospace)",
+                  padding: "12px 16px",
+                  borderRadius: 12,
+                  background: "rgba(0, 0, 0, 0.18)",
+                }}>
                   {address.slice(0, 10)}…{address.slice(-8)} (your wallet)
                 </div>
+              )}
+            </div>
+
+            {/* Auto Forwarder Toggle */}
+            <div style={{ marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--muted)" }}>Auto Forwarder</label>
+                  <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Pays destination minting for convenience.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { if (!isEmbeddedWallet) setUseForwarder((v) => !v); }}
+                  disabled={isEmbeddedWallet}
+                  style={{
+                    width: 48,
+                    height: 26,
+                    borderRadius: 13,
+                    border: "none",
+                    cursor: isEmbeddedWallet ? "not-allowed" : "pointer",
+                    position: "relative",
+                    transition: "background 0.2s",
+                    background: useForwarder ? "#2563eb" : "rgba(255, 255, 255, 0.1)",
+                    opacity: isEmbeddedWallet ? 0.7 : 1,
+                  }}
+                  aria-label={isEmbeddedWallet ? "Auto Forwarder required for embedded wallets" : (useForwarder ? "Disable Auto Forwarder" : "Enable Auto Forwarder")}
+                >
+                  <span style={{
+                    position: "absolute",
+                    top: 3,
+                    left: useForwarder ? 23 : 3,
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    transition: "left 0.2s",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                  }} />
+                </button>
+              </div>
+              <div style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                padding: "10px 14px",
+                borderRadius: 12,
+                background: "rgba(255, 255, 255, 0.06)",
+              }}>
+                <b style={{ color: "var(--foreground)" }}>Auto Forwarder: {useForwarder ? "On" : "Off"}</b>
+                <br />
+                {isEmbeddedWallet
+                  ? "Auto Forwarder is required for embedded wallets (social login)."
+                  : useForwarder
+                    ? "Fastest path, but may add a forwarder fee."
+                    : "Lower fee path. You may need to confirm minting on the destination chain."}
+              </div>
+              {isEmbeddedWallet && (
+                <p style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "8px 14px",
+                  borderRadius: 12,
+                  background: "rgba(245, 158, 11, 0.1)",
+                  color: "#f59e0b",
+                }}>
+                  Auto Forwarder is required for embedded wallets.
+                </p>
               )}
             </div>
 
             {/* Status */}
             {progressLabel && status !== "success" && (
               <div className="dex-card-sm" style={{ background: "rgba(37,99,235,0.06)", borderColor: "rgba(37,99,235,0.2)" }}>
-                <div className="flex items-center gap-3">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <div className="status-dot" />
-                  <span className="text-sm text-[var(--brand)]">{progressLabel}</span>
+                  <span style={{ fontSize: 13, color: "var(--brand)" }}>{progressLabel}</span>
                 </div>
               </div>
             )}
 
-            {error && <div className="rounded-2xl p-3 text-xs font-medium" style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>{error}</div>}
+            {error && <div style={{ borderRadius: 16, padding: 12, fontSize: 13, background: "rgba(239,68,68,0.08)", color: "#ef4444" }}>{error}</div>}
 
             {txHash && (
-              <a href={`${sourceMeta.explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="tx-hash block rounded-2xl p-3 text-xs font-semibold" style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e" }}>
+              <a href={`${sourceMeta.explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="tx-hash" style={{ display: "block", borderRadius: 16, padding: 12, fontSize: 13, background: "rgba(34,197,94,0.08)", color: "#22c55e" }}>
                 View transaction → {txHash.slice(0, 10)}…{txHash.slice(-8)}
               </a>
             )}
@@ -292,13 +413,13 @@ export default function BridgePage() {
         </div>
 
         {/* How it works */}
-        <div className="dex-card mt-6" style={{ padding: 24 }}>
-          <p className="dex-section-title" style={{ marginBottom: 12 }}>How it works</p>
-          <div className="space-y-3 text-sm text-[var(--muted)]">
-            <div className="flex items-start gap-3"><span className="dex-badge">1</span><span>Approve USDC spend for the Circle bridge contract</span></div>
-            <div className="flex items-start gap-3"><span className="dex-badge">2</span><span>USDC is burned on the source chain</span></div>
-            <div className="flex items-start gap-3"><span className="dex-badge">3</span><span>Circle attestation confirms the burn (30s–5min)</span></div>
-            <div className="flex items-start gap-3"><span className="dex-badge">4</span><span>USDC is minted on the destination chain</span></div>
+        <div className="dex-card" style={{ marginTop: 24, padding: 24 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>How it works</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: 14, color: "var(--muted)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}><span className="dex-badge">1</span><span>Approve USDC spend for the Circle bridge contract</span></div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}><span className="dex-badge">2</span><span>USDC is burned on the source chain</span></div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}><span className="dex-badge">3</span><span>Circle attestation confirms the burn (30s–5min)</span></div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}><span className="dex-badge">4</span><span>USDC is minted on the destination chain</span></div>
           </div>
         </div>
       </div>

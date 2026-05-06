@@ -46,11 +46,9 @@ export default function HomePage() {
 
   const usdcReserve = data?.[0]?.result ?? BigInt(0);
   const eurcReserve = data?.[1]?.result ?? BigInt(0);
-  const fee = data?.[2]?.result ?? BigInt(0);
 
   const tvl =
     Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
-  const feePercent = Number(formatUnits(fee, 10));
 
   return (
     <>
@@ -98,19 +96,33 @@ export default function HomePage() {
                 marginTop: "40px",
               }}
             >
-              <Link href="/swap" className="dex-btn" style={{ padding: "16px 36px", fontSize: "16px" }}>
+              <Link
+                href="/swap"
+                className="dex-btn"
+                style={{
+                  padding: "16px 42px",
+                  fontSize: "16px",
+                  borderRadius: "999px",
+                  background: "rgba(255, 255, 255, 0.12)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  color: "#fff",
+                  fontWeight: 600,
+                }}
+              >
                 Launch App →
               </Link>
             </div>
           </section>
 
-          {/* Stats Row */}
+          {/* Stats Row — centered 3 columns */}
           <section className="dex-section">
             <div
               className="dex-card"
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
+                gridTemplateColumns: "repeat(3, 1fr)",
                 gap: "24px",
                 textAlign: "center",
               }}
@@ -126,12 +138,9 @@ export default function HomePage() {
                 <div className="dex-stat-label">Total Volume</div>
               </div>
               <div className="dex-stat">
-                <div className="dex-stat-value">
-                  {feePercent > 0 ? `${feePercent.toFixed(4)}%` : "—"}
-                </div>
+                <div className="dex-stat-value">0.3%</div>
                 <div className="dex-stat-label">Pool Fee</div>
               </div>
-
             </div>
           </section>
 
@@ -141,20 +150,16 @@ export default function HomePage() {
               <Link href="/swap" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className="dex-card" style={{ cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                    <span
+                    <div
                       style={{
-                        fontSize: "48px",
-                        fontWeight: 800,
-                        background:
-                          "linear-gradient(135deg, var(--brand), var(--purple))",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                        backgroundClip: "text",
-                        lineHeight: 1,
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle at 35% 35%, #60a5fa, #2563eb)",
+                        flexShrink: 0,
+                        boxShadow: "0 0 20px rgba(59,130,246,0.35)",
                       }}
-                    >
-                      01
-                    </span>
+                    />
                     <div>
                       <h3
                         style={{
@@ -167,7 +172,7 @@ export default function HomePage() {
                       </h3>
                       <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
                         Exchange USDC and EURC with minimal slippage through our
-                        StableSwap pool. Curve-style pricing ensures deep
+                        Radius Swap pool. Curve-style pricing ensures deep
                         liquidity for stablecoin pairs.
                       </p>
                     </div>
@@ -178,20 +183,16 @@ export default function HomePage() {
               <Link href="/yield" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className="dex-card" style={{ cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                    <span
+                    <div
                       style={{
-                        fontSize: "48px",
-                        fontWeight: 800,
-                        background:
-                          "linear-gradient(135deg, var(--purple), var(--aurora-3))",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                        backgroundClip: "text",
-                        lineHeight: 1,
+                        width: 48,
+                        height: 48,
+                        borderRadius: "50%",
+                        background: "radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)",
+                        flexShrink: 0,
+                        boxShadow: "0 0 20px rgba(139,92,246,0.35)",
                       }}
-                    >
-                      02
-                    </span>
+                    />
                     <div>
                       <h3
                         style={{
