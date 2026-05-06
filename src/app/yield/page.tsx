@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import {
   useAccount,
   useReadContracts,
-  useWriteContract,
-  useWaitForTransactionReceipt,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import {
@@ -19,6 +17,7 @@ import {
 import { USDC, EURC, type Token } from "@/config/tokens";
 import Navbar from "@/components/Navbar";
 import { useRadiusAuth } from "@/lib/auth";
+import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
 
 type VaultTab = "deposit" | "withdraw";
 
@@ -31,20 +30,8 @@ interface VaultInfo {
 }
 
 const VAULTS: VaultInfo[] = [
-  {
-    name: "Radius USDC",
-    symbol: "radUSDC",
-    token: USDC,
-    vaultAddress: USDC_VAULT_ADDRESS,
-    color: "#2775ca",
-  },
-  {
-    name: "Radius EURC",
-    symbol: "radEURC",
-    token: EURC,
-    vaultAddress: EURC_VAULT_ADDRESS,
-    color: "#0052ff",
-  },
+  { name: "Radius USDC", symbol: "radUSDC", token: USDC, vaultAddress: USDC_VAULT_ADDRESS, color: "#2775ca" },
+  { name: "Radius EURC", symbol: "radEURC", token: EURC, vaultAddress: EURC_VAULT_ADDRESS, color: "#0052ff" },
 ];
 
 export default function YieldPage() {
@@ -55,7 +42,6 @@ export default function YieldPage() {
   const [activeVault, setActiveVault] = useState(0);
   const [vaultTab, setVaultTab] = useState<VaultTab>("deposit");
   const [amount, setAmount] = useState("");
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [pendingAction, setPendingAction] = useState<"approve" | "action" | null>(null);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; vault: string; amount: string; time: string }[]
@@ -63,55 +49,22 @@ export default function YieldPage() {
 
   const vault = VAULTS[activeVault];
 
+  const { writeContractAsync, isPending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
+
   // Read vault data + balances
   const { data: vaultData } = useReadContracts({
     contracts: [
-      // 0: vault totalAssets
-      {
-        address: vault.vaultAddress,
-        abi: VAULT_ABI,
-        functionName: "totalAssets",
-      },
-      // 1: vault totalSupply
-      {
-        address: vault.vaultAddress,
-        abi: VAULT_ABI,
-        functionName: "totalSupply",
-      },
-      // 2: user vault balance (shares)
-      {
-        address: vault.vaultAddress,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: address ? [address] : undefined,
-      },
-      // 3: user underlying token balance
-      {
-        address: vault.token.address,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: address ? [address] : undefined,
-      },
-      // 4: allowance for vault
-      {
-        address: vault.token.address,
-        abi: ERC20_ABI,
-        functionName: "allowance",
-        args: address ? [address, vault.vaultAddress] : undefined,
-      },
-      // 5: share price (convertToAssets with 1 share = 1e18)
-      {
-        address: vault.vaultAddress,
-        abi: VAULT_ABI,
-        functionName: "convertToAssets",
-        args: [BigInt(10 ** 18)],
-      },
+      { address: vault.vaultAddress, abi: VAULT_ABI, functionName: "totalAssets" },
+      { address: vault.vaultAddress, abi: VAULT_ABI, functionName: "totalSupply" },
+      { address: vault.vaultAddress, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined },
+      { address: vault.token.address, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined },
+      { address: vault.token.address, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, vault.vaultAddress] : undefined },
+      { address: vault.vaultAddress, abi: VAULT_ABI, functionName: "convertToAssets", args: [BigInt(10 ** 18)] },
     ],
     query: { enabled: isConnected && !!address, refetchInterval: 10000 },
   });
 
   const totalAssets = (vaultData?.[0]?.result as bigint) ?? BigInt(0);
-  const totalSupply = (vaultData?.[1]?.result as bigint) ?? BigInt(0);
   const userShares = (vaultData?.[2]?.result as bigint) ?? BigInt(0);
   const tokenBalance = (vaultData?.[3]?.result as bigint) ?? BigInt(0);
   const allowance = (vaultData?.[4]?.result as bigint) ?? BigInt(0);
@@ -119,41 +72,30 @@ export default function YieldPage() {
 
   const tvl = Number(formatUnits(totalAssets, vault.token.decimals));
   const sharePriceNum = Number(formatUnits(sharePrice, vault.token.decimals));
-  const userSharesValue =
-    Number(formatUnits(userShares, 18)) * sharePriceNum;
-
-  // Write hooks
-  const {
-    mutateAsync: writeContract,
-    isPending: isWritePending,
-    reset: resetWrite,
-  } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash: txHash,
-  });
+  const userSharesValue = Number(formatUnits(userShares, 18)) * sharePriceNum;
 
   useEffect(() => {
     if (isSuccess && txHash) {
       if (pendingAction === "action") {
         setTxHistory((prev) => [
-          {
-            hash: txHash,
-            action: vaultTab === "deposit" ? "Deposit" : "Withdraw",
-            vault: vault.symbol,
-            amount: amount,
-            time: new Date().toLocaleTimeString(),
-          },
+          { hash: txHash, action: vaultTab === "deposit" ? "Deposit" : "Withdraw", vault: vault.symbol, amount, time: new Date().toLocaleTimeString() },
           ...prev.slice(0, 9),
         ]);
         setAmount("");
       }
       setTxHash(undefined);
       setPendingAction(null);
-      resetWrite();
+      reset();
     }
   }, [isSuccess]);
 
-  const isProcessing = isWritePending || isConfirming;
+  const isProcessing = isPending || isConfirming;
+
+  // Safe parse for button label
+  const safeParseAmount = (() => {
+    try { return parseUnits(amount || "0", vault.token.decimals); } catch { return BigInt(0); }
+  })();
+  const needsApproval = vaultTab === "deposit" && safeParseAmount > BigInt(0) && allowance < safeParseAmount;
 
   const handleAction = async () => {
     if (!address || !amount) return;
@@ -163,36 +105,23 @@ export default function YieldPage() {
       if (vaultTab === "deposit") {
         if (allowance < parsed) {
           setPendingAction("approve");
-          const h = await writeContract({
-            address: vault.token.address,
-            abi: ERC20_ABI,
-            functionName: "approve",
-            args: [vault.vaultAddress, parsed],
-          });
-          setTxHash(h);
+          await writeContractAsync({ address: vault.token.address, abi: ERC20_ABI, functionName: "approve", args: [vault.vaultAddress, parsed] });
           return;
         }
         setPendingAction("action");
-        const h = await writeContract({
-          address: vault.vaultAddress,
-          abi: VAULT_ABI,
-          functionName: "deposit",
-          args: [parsed, address],
-        });
-        setTxHash(h);
+        await writeContractAsync({ address: vault.vaultAddress, abi: VAULT_ABI, functionName: "deposit", args: [parsed, address] });
       } else {
         setPendingAction("action");
-        const h = await writeContract({
-          address: vault.vaultAddress,
-          abi: VAULT_ABI,
-          functionName: "withdraw",
-          args: [parsed, address, address],
-        });
-        setTxHash(h);
+        await writeContractAsync({ address: vault.vaultAddress, abi: VAULT_ABI, functionName: "withdraw", args: [parsed, address, address] });
       }
-    } catch (err) {
-      console.error("Vault action error:", err);
-    }
+    } catch (err) { console.error("Vault action error:", err); }
+  };
+
+  const getButtonText = () => {
+    if (isProcessing) return <><span className="spinner" /> Processing...</>;
+    if (needsApproval) return `Approve ${vault.token.symbol}`;
+    if (vaultTab === "deposit") return `Deposit ${vault.token.symbol}`;
+    return `Withdraw ${vault.symbol}`;
   };
 
   return (
@@ -200,141 +129,52 @@ export default function YieldPage() {
       <Navbar />
       <div className="dex-page">
         <div className="dex-container">
-          <h1
-            style={{
-              fontSize: "32px",
-              fontWeight: 700,
-              marginBottom: "32px",
-            }}
-          >
-            Yield Vaults
-          </h1>
+          <h1 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Yield Vaults</h1>
 
           {/* Vault Cards */}
           <div className="dex-grid dex-grid-2 dex-section">
             {VAULTS.map((v, i) => (
               <div
                 key={v.symbol}
-                className={`dex-card ${i === activeVault ? "" : ""}`}
-                style={{
-                  cursor: "pointer",
-                  borderColor:
-                    i === activeVault
-                      ? "rgba(59, 130, 246, 0.4)"
-                      : undefined,
-                }}
-                onClick={() => {
-                  setActiveVault(i);
-                  setAmount("");
-                }}
+                className="dex-card"
+                style={{ cursor: "pointer", borderColor: i === activeVault ? "rgba(59, 130, 246, 0.4)" : undefined }}
+                onClick={() => { setActiveVault(i); setAmount(""); }}
               >
-                <div
-                  className="dex-flex-between"
-                  style={{ marginBottom: "20px" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    <div
-                      className="token-logo"
-                      style={{
-                        background: v.color,
-                        width: "36px",
-                        height: "36px",
-                        fontSize: "14px",
-                      }}
-                    >
-                      {v.symbol.charAt(4)}
-                    </div>
+                <div className="dex-flex-between" style={{ marginBottom: "20px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div className="token-logo" style={{ background: v.color, width: "36px", height: "36px", fontSize: "14px" }}>{v.symbol.charAt(4)}</div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: "18px" }}>
-                        {v.symbol}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          color: "var(--muted)",
-                        }}
-                      >
-                        {v.token.symbol} Vault
-                      </div>
+                      <div style={{ fontWeight: 700, fontSize: "18px" }}>{v.symbol}</div>
+                      <div style={{ fontSize: "13px", color: "var(--muted)" }}>{v.token.symbol} Vault</div>
                     </div>
                   </div>
-                  {i === activeVault && (
-                    <span className="dex-badge">Selected</span>
-                  )}
+                  {i === activeVault && <span className="dex-badge">Selected</span>}
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "12px",
-                  }}
-                >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
                   <div style={{ textAlign: "center" }}>
                     <div className="dex-stat-label">TVL</div>
-                    <div
-                      style={{
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        fontFamily: "var(--font-geist-mono, monospace)",
-                        marginTop: "4px",
-                      }}
-                    >
-                      $
-                      {tvl.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      })}
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "4px" }}>
+                      ${tvl.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </div>
                   </div>
                   <div style={{ textAlign: "center" }}>
                     <div className="dex-stat-label">Share Price</div>
-                    <div
-                      style={{
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        fontFamily: "var(--font-geist-mono, monospace)",
-                        marginTop: "4px",
-                      }}
-                    >
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "4px" }}>
                       {sharePriceNum.toFixed(6)}
                     </div>
                   </div>
                   <div style={{ textAlign: "center" }}>
                     <div className="dex-stat-label">Your Shares</div>
-                    <div
-                      style={{
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        fontFamily: "var(--font-geist-mono, monospace)",
-                        marginTop: "4px",
-                      }}
-                    >
+                    <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "4px" }}>
                       {Number(formatUnits(userShares, 18)).toFixed(4)}
                     </div>
                   </div>
                 </div>
 
                 {isConnected && userShares > BigInt(0) && (
-                  <div
-                    style={{
-                      marginTop: "16px",
-                      padding: "12px",
-                      background: "rgba(59, 130, 246, 0.08)",
-                      borderRadius: "10px",
-                      textAlign: "center",
-                      fontSize: "13px",
-                    }}
-                  >
-                    Your position: ~$
-                    {userSharesValue.toLocaleString(undefined, {
-                      maximumFractionDigits: 2,
-                    })}
+                  <div style={{ marginTop: "16px", padding: "12px", background: "rgba(59, 130, 246, 0.08)", borderRadius: "10px", textAlign: "center", fontSize: "13px" }}>
+                    Your position: ~${userSharesValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </div>
                 )}
               </div>
@@ -345,89 +185,39 @@ export default function YieldPage() {
           <div style={{ maxWidth: "500px", margin: "0 auto" }}>
             <div className="dex-card">
               <div className="dex-tabs" style={{ marginBottom: "24px" }}>
-                <button
-                  className={`dex-tab ${vaultTab === "deposit" ? "active" : ""}`}
-                  onClick={() => { setVaultTab("deposit"); setAmount(""); }}
-                >
-                  Deposit
-                </button>
-                <button
-                  className={`dex-tab ${vaultTab === "withdraw" ? "active" : ""}`}
-                  onClick={() => { setVaultTab("withdraw"); setAmount(""); }}
-                >
-                  Withdraw
-                </button>
+                <button className={`dex-tab ${vaultTab === "deposit" ? "active" : ""}`} onClick={() => { setVaultTab("deposit"); setAmount(""); }}>Deposit</button>
+                <button className={`dex-tab ${vaultTab === "withdraw" ? "active" : ""}`} onClick={() => { setVaultTab("withdraw"); setAmount(""); }}>Withdraw</button>
               </div>
 
-              <div style={{ marginBottom: "20px" }}>
-                <div
-                  className="dex-flex-between"
-                  style={{
-                    marginBottom: "8px",
-                    fontSize: "13px",
-                    color: "var(--muted)",
-                  }}
-                >
-                  <span>
-                    {vaultTab === "deposit"
-                      ? `Deposit ${vault.token.symbol}`
-                      : `Withdraw ${vault.symbol}`}
-                  </span>
-                  <span>
-                    Balance:{" "}
-                    {vaultTab === "deposit"
-                      ? Number(
-                          formatUnits(tokenBalance, vault.token.decimals)
-                        ).toFixed(4)
-                      : userSharesValue.toFixed(4)}
-                  </span>
+              {/* Error feedback */}
+              {txError && (
+                <div style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
+                  {txError}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    alignItems: "center",
-                  }}
-                >
+              )}
+
+              <div style={{ marginBottom: "20px" }}>
+                <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
+                  <span>{vaultTab === "deposit" ? `Deposit ${vault.token.symbol}` : `Withdraw ${vault.symbol}`}</span>
+                  <span>Balance: {vaultTab === "deposit" ? Number(formatUnits(tokenBalance, vault.token.decimals)).toFixed(4) : userSharesValue.toFixed(4)}</span>
+                </div>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                   <div className="token-badge">
-                    <div
-                      className="token-logo"
-                      style={{ background: vaultTab === "deposit" ? vault.token.color : vault.color }}
-                    >
+                    <div className="token-logo" style={{ background: vaultTab === "deposit" ? vault.token.color : vault.color }}>
                       {vaultTab === "deposit" ? vault.token.symbol.charAt(0) : vault.symbol.charAt(4)}
                     </div>
                     <span style={{ fontWeight: 600 }}>{vaultTab === "deposit" ? vault.token.symbol : vault.symbol}</span>
                   </div>
-                  <input
-                    className="dex-input"
-                    type="text"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v);
-                    }}
-                    style={{ flex: 1, textAlign: "right" }}
-                  />
+                  <input className="dex-input" type="text" placeholder="0.00" value={amount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
                 </div>
                 <div style={{ textAlign: "right", marginTop: "6px" }}>
-                  <button
-                    className="dex-btn dex-btn-sm dex-btn-outline"
-                    style={{ fontSize: "11px", padding: "4px 12px" }}
-                    onClick={() => {
-                      if (vaultTab === "deposit") {
-                        setAmount(formatUnits(tokenBalance, vault.token.decimals));
-                      } else {
-                        setAmount(
-                          userSharesValue > 0
-                            ? userSharesValue.toFixed(vault.token.decimals)
-                            : "0"
-                        );
-                      }
-                    }}
-                  >
-                    MAX
-                  </button>
+                  <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => {
+                    if (vaultTab === "deposit") {
+                      setAmount(formatUnits(tokenBalance, vault.token.decimals));
+                    } else {
+                      setAmount(userSharesValue > 0 ? userSharesValue.toFixed(vault.token.decimals) : "0");
+                    }
+                  }}>MAX</button>
                 </div>
               </div>
 
@@ -436,64 +226,22 @@ export default function YieldPage() {
                 disabled={!isConnected || !amount || isProcessing}
                 onClick={handleAction}
               >
-                {isProcessing ? (
-                  <>
-                    <div className="spinner" /> Processing...
-                  </>
-                ) : vaultTab === "deposit" &&
-                  allowance < parseUnits(amount || "0", vault.token.decimals) ? (
-                  `Approve ${vault.token.symbol}`
-                ) : vaultTab === "deposit" ? (
-                  `Deposit ${vault.token.symbol}`
-                ) : (
-                  `Withdraw ${vault.symbol}`
-                )}
+                {!isConnected ? "Connect wallet to continue" : getButtonText()}
               </button>
             </div>
 
             {/* Vault History */}
             {txHistory.length > 0 && (
               <div className="dex-card" style={{ marginTop: "24px" }}>
-                <h3
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 600,
-                    marginBottom: "16px",
-                  }}
-                >
-                  Vault Activity
-                </h3>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>Vault Activity</h3>
                 {txHistory.map((tx, i) => (
                   <div key={i} className="dex-list-item">
                     <div>
                       <span style={{ fontWeight: 500 }}>{tx.action}</span>
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          color: "var(--muted)",
-                          marginLeft: "12px",
-                        }}
-                      >
-                        {tx.amount} {tx.vault}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "12px",
-                          color: "var(--muted)",
-                          marginLeft: "8px",
-                        }}
-                      >
-                        {tx.time}
-                      </span>
+                      <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "12px" }}>{tx.amount} {tx.vault}</span>
+                      <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{tx.time}</span>
                     </div>
-                    <a
-                      href={`https://testnet.arcscan.app/tx/${tx.hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="tx-hash"
-                    >
-                      {tx.hash.slice(0, 10)}...
-                    </a>
+                    <a href={`https://testnet.arcscan.app/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="tx-hash">{tx.hash.slice(0, 10)}...</a>
                   </div>
                 ))}
               </div>
