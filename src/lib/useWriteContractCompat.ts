@@ -3,8 +3,7 @@
 import { useCallback, useState } from "react";
 import { useAccount, useWriteContract as useWagmiWrite, useWaitForTransactionReceipt } from "wagmi";
 import type { Abi, Address } from "viem";
-import { createWalletClient, custom, encodeFunctionData } from "viem";
-import { arcTestnet } from "@/config/wagmi";
+import { encodeFunctionData } from "viem";
 import { useRadiusAuth } from "@/lib/auth";
 
 /**
@@ -13,7 +12,7 @@ import { useRadiusAuth } from "@/lib/auth";
  */
 export function useWriteContractCompat() {
   const { isConnected: wagmiConnected } = useAccount();
-  const { provider: privyProvider, authenticated } = useRadiusAuth();
+  const { provider: privyProvider, authenticated, address: privyAddress } = useRadiusAuth();
   const wagmiWrite = useWagmiWrite();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [isPending, setIsPending] = useState(false);
@@ -33,24 +32,22 @@ export function useWriteContractCompat() {
           return hash;
         }
 
-        if (authenticated && privyProvider) {
-          // Use Privy provider directly via viem
-          // Encode function data and use eth_sendTransaction explicitly
-          const client = createWalletClient({
-            chain: arcTestnet,
-            transport: custom(privyProvider as import("viem").EIP1193Provider),
-          });
-          const [account] = await client.getAddresses();
+        if (authenticated && privyProvider && privyAddress) {
+          // Encode function data and call eth_sendTransaction directly
+          // (Privy's provider uses wallet_sendTransaction which Arc Testnet RPC rejects)
           const data = encodeFunctionData({
             abi: args.abi,
             functionName: args.functionName,
             args: args.args as readonly unknown[] | undefined,
           });
-          const hash = await client.sendTransaction({
-            to: args.address,
-            data,
-            account,
-          });
+          const hash = await privyProvider.request({
+            method: "eth_sendTransaction",
+            params: [{
+              from: privyAddress,
+              to: args.address,
+              data,
+            }],
+          }) as `0x${string}`;
           setTxHash(hash);
           return hash;
         }
@@ -64,7 +61,7 @@ export function useWriteContractCompat() {
         setIsPending(false);
       }
     },
-    [wagmiConnected, privyProvider, authenticated, wagmiWrite]
+    [wagmiConnected, privyProvider, authenticated, privyAddress, wagmiWrite]
   );
 
   const reset = useCallback(() => {
