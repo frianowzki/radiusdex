@@ -18,6 +18,7 @@ import {
   SLIPPAGE_BPS,
 } from "@/config/contracts";
 import { TOKENS, type Token } from "@/config/tokens";
+import { TokenLogo } from "@/components/TokenLogo";
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
@@ -155,7 +156,7 @@ export default function SwapPage() {
             <div className="swap-amount-input-wrapper">
               <input className="swap-amount-input" type="text" placeholder="0.00" value={fromAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setFromAmount(v); }} />
               <div className="swap-amount-token" onClick={() => { const next = TOKENS.find((t) => t.index !== fromToken.index); if (next) { setFromToken(next); if (next.index === toToken.index) setToToken(fromToken); } }} style={{ cursor: "pointer" }}>
-                <div className="swap-token-icon-sm" style={{ background: fromToken.color }}>{fromToken.symbol.charAt(0)}</div>
+                <div className="swap-token-icon-sm"><TokenLogo symbol={fromToken.symbol} size={24} /></div>
                 {fromToken.symbol}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 4 }}><path d="M6 9l6 6 6-6" /></svg>
               </div>
@@ -184,7 +185,7 @@ export default function SwapPage() {
                   : "0.00"}
               </div>
               <div className="swap-amount-token" onClick={() => { const next = TOKENS.find((t) => t.index !== toToken.index); if (next) { setToToken(next); if (next.index === fromToken.index) setFromToken(toToken); } }} style={{ cursor: "pointer" }}>
-                <div className="swap-token-icon-sm" style={{ background: toToken.color }}>{toToken.symbol.charAt(0)}</div>
+                <div className="swap-token-icon-sm"><TokenLogo symbol={toToken.symbol} size={24} /></div>
                 {toToken.symbol}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginLeft: 4 }}><path d="M6 9l6 6 6-6" /></svg>
               </div>

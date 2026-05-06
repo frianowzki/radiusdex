@@ -15,6 +15,7 @@ import {
   EURC_ADDRESS,
 } from "@/config/contracts";
 import { USDC, EURC } from "@/config/tokens";
+import { TokenLogo } from "@/components/TokenLogo";
 import Navbar from "@/components/Navbar";
 import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
@@ -48,6 +49,10 @@ export default function PoolPage() {
       { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "totalSupply" },
       { address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, POOL_ADDRESS] : undefined },
       { address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, POOL_ADDRESS] : undefined },
+      // 7: user USDC balance
+      { address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined },
+      // 8: user EURC balance
+      { address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: address ? [address] : undefined },
     ],
     query: { enabled: isConnected && !!address, refetchInterval: 5000 },
   });
@@ -55,12 +60,12 @@ export default function PoolPage() {
   const usdcReserve = (poolData?.[0]?.result as bigint) ?? BigInt(0);
   const eurcReserve = (poolData?.[1]?.result as bigint) ?? BigInt(0);
   const lpBalance = (poolData?.[3]?.result as bigint) ?? BigInt(0);
-  const lpSupply = (poolData?.[4]?.result as bigint) ?? BigInt(0);
   const usdcAllowance = (poolData?.[5]?.result as bigint) ?? BigInt(0);
   const eurcAllowance = (poolData?.[6]?.result as bigint) ?? BigInt(0);
+  const userUsdcBalance = (poolData?.[7]?.result as bigint) ?? BigInt(0);
+  const userEurcBalance = (poolData?.[8]?.result as bigint) ?? BigInt(0);
 
   const isProcessing = isPending || isConfirming;
-  const totalLiquidity = Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
 
   // Track what step we're on for auto-continuation
   const pendingStepRef = useRef<"approve-usdc" | "approve-eurc" | "add-liquidity" | "remove-liquidity" | null>(null);
@@ -187,8 +192,8 @@ export default function PoolPage() {
   const getButtonText = () => {
     if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
-    if (needsUsdcApproval) return "Add Liquidity (auto-approve)";
-    if (needsEurcApproval) return "Add Liquidity (auto-approve)";
+    if (needsUsdcApproval) return "Add Liquidity";
+    if (needsEurcApproval) return "Add Liquidity";
     return "Add Liquidity";
   };
 
@@ -204,8 +209,8 @@ export default function PoolPage() {
             <div className="dex-flex-between" style={{ marginBottom: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <div style={{ display: "flex" }}>
-                  <div className="token-logo" style={{ background: USDC.color, marginRight: "-8px", zIndex: 1 }}>U</div>
-                  <div className="token-logo" style={{ background: EURC.color }}>E</div>
+                  <div style={{ marginRight: "-8px", zIndex: 1 }}><TokenLogo symbol="USDC" size={28} /></div>
+                  <TokenLogo symbol="EURC" size={28} />
                 </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: "18px" }}>USDC — EURC</div>
@@ -229,15 +234,15 @@ export default function PoolPage() {
                 </div>
               </div>
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
-                <div className="dex-stat-label">Total Liquidity</div>
-                <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px", color: totalLiquidity === 0 ? "var(--muted)" : undefined }}>
-                  {totalLiquidity === 0 ? "No liquidity" : `$${totalLiquidity.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                <div className="dex-stat-label">Your USDC</div>
+                <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px" }}>
+                  ${Number(formatUnits(userUsdcBalance, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
               </div>
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
-                <div className="dex-stat-label">LP Supply</div>
-                <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px", color: lpSupply === BigInt(0) ? "var(--muted)" : undefined }}>
-                  {lpSupply === BigInt(0) ? "No LP tokens" : Number(formatUnits(lpSupply, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 })}
+                <div className="dex-stat-label">Your EURC</div>
+                <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px" }}>
+                  €{Number(formatUnits(userEurcBalance, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>
@@ -266,7 +271,7 @@ export default function PoolPage() {
                     </div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                       <div className="token-badge">
-                        <div className="token-logo" style={{ background: USDC.color }}>U</div>
+                        <TokenLogo symbol="USDC" size={24} />
                         <span style={{ fontWeight: 600 }}>USDC</span>
                       </div>
                       <input className="dex-input" type="text" placeholder="0.00" value={usdcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setUsdcAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
@@ -279,7 +284,7 @@ export default function PoolPage() {
                     </div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                       <div className="token-badge">
-                        <div className="token-logo" style={{ background: EURC.color }}>E</div>
+                        <TokenLogo symbol="EURC" size={24} />
                         <span style={{ fontWeight: 600 }}>EURC</span>
                       </div>
                       <input className="dex-input" type="text" placeholder="0.00" value={eurcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setEurcAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
@@ -305,7 +310,7 @@ export default function PoolPage() {
                     </div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                       <div className="token-badge">
-                        <div className="token-logo" style={{ background: "var(--purple)" }}>L</div>
+                        <div className="token-logo" style={{ background: "linear-gradient(135deg, #2563eb, #60a5fa)", fontSize: 10, fontWeight: 800 }}>LP</div>
                         <span style={{ fontWeight: 600 }}>LP</span>
                       </div>
                       <input className="dex-input" type="text" placeholder="0.00" value={lpAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setLpAmount(v); }} style={{ flex: 1, textAlign: "right" }} />

@@ -258,15 +258,15 @@ export default function BridgePage() {
                       fontSize: 12,
                       padding: "5px 14px",
                       borderRadius: 10,
-                      border: "none",
+                      border: sendToSelf ? "1px solid rgba(96, 165, 250, 0.3)" : "none",
                       cursor: "pointer",
                       fontWeight: 600,
                       transition: "all 0.15s",
-                      background: sendToSelf ? "rgba(255, 255, 255, 0.22)" : "rgba(255, 255, 255, 0.06)",
+                      background: sendToSelf ? "linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%)" : "rgba(255, 255, 255, 0.06)",
                       backdropFilter: "blur(8px)",
                       WebkitBackdropFilter: "blur(8px)",
                       color: sendToSelf ? "#fff" : "var(--muted)",
-                      boxShadow: sendToSelf ? "0 0 0 1px rgba(255,255,255,0.18)" : "none",
+                      boxShadow: sendToSelf ? "0 0 12px rgba(37, 99, 235, 0.25)" : "none",
                     }}
                   >
                     My Wallet
@@ -278,15 +278,15 @@ export default function BridgePage() {
                       fontSize: 12,
                       padding: "5px 14px",
                       borderRadius: 10,
-                      border: "none",
+                      border: !sendToSelf ? "1px solid rgba(96, 165, 250, 0.3)" : "none",
                       cursor: "pointer",
                       fontWeight: 600,
                       transition: "all 0.15s",
-                      background: !sendToSelf ? "rgba(255, 255, 255, 0.22)" : "rgba(255, 255, 255, 0.06)",
+                      background: !sendToSelf ? "linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%)" : "rgba(255, 255, 255, 0.06)",
                       backdropFilter: "blur(8px)",
                       WebkitBackdropFilter: "blur(8px)",
                       color: !sendToSelf ? "#fff" : "var(--muted)",
-                      boxShadow: !sendToSelf ? "0 0 0 1px rgba(255,255,255,0.18)" : "none",
+                      boxShadow: !sendToSelf ? "0 0 12px rgba(37, 99, 235, 0.25)" : "none",
                     }}
                   >
                     Other Address

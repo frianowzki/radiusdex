@@ -228,6 +228,7 @@ body {
   background: transparent; border: none;
   border-radius: 10px; cursor: pointer;
   color: var(--foreground);
+  text-decoration: none;
   transition: background 0.15s;
 }
 
@@ -350,6 +351,39 @@ body {
   width: 28px; height: 28px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 12px; font-weight: 700; color: white;
+}
+
+/* TokenLogo SVG component */
+.token-logo-usdc,
+.token-logo-eurc {
+  width: var(--token-logo-size, 36px);
+  height: var(--token-logo-size, 36px);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.token-logo-usdc { background: #2775ca; }
+.token-logo-eurc { background: #0052ff; }
+.token-logo-usdc svg,
+.token-logo-eurc svg {
+  width: 65%;
+  height: 65%;
+}
+.token-logo-rail {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+.token-logo-symbol {
+  fill: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-geist-mono, monospace);
+  text-anchor: middle;
+  dominant-baseline: central;
 }
 
 /* ===== STATS ===== */

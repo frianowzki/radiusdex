@@ -125,6 +125,18 @@ export function ConnectButton() {
             </svg>
             Copy address
           </button>
+          <a
+            href="https://faucet.circle.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="connect-dropdown-item"
+            onClick={() => setOpen(false)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+            </svg>
+            Arc Faucet
+          </a>
           <button
             type="button"
             onClick={() => { logout(); setOpen(false); }}

@@ -103,12 +103,13 @@ export default function HomePage() {
                   padding: "16px 42px",
                   fontSize: "16px",
                   borderRadius: "999px",
-                  background: "rgba(255, 255, 255, 0.12)",
+                  background: "linear-gradient(135deg, #2563eb 0%, #3b82f6 50%, #60a5fa 100%)",
                   backdropFilter: "blur(12px)",
                   WebkitBackdropFilter: "blur(12px)",
-                  border: "1px solid rgba(255, 255, 255, 0.18)",
+                  border: "1px solid rgba(96, 165, 250, 0.3)",
                   color: "#fff",
                   fontWeight: 600,
+                  boxShadow: "0 0 20px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)",
                 }}
               >
                 Launch App →

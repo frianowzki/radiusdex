@@ -164,7 +164,7 @@ export default function YieldPage() {
     if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
     if (action === "stake") {
-      if (needsApproval) return "Stake LP (auto-approve)";
+      if (needsApproval) return "Stake LP";
       return "Stake LP";
     }
     return "Unstake LP";
@@ -293,7 +293,7 @@ export default function YieldPage() {
                 </div>
                 <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                   <div className="token-badge">
-                    <div className="token-logo" style={{ background: "#8b5cf6" }}>LP</div>
+                    <div className="token-logo" style={{ background: "linear-gradient(135deg, #2563eb, #60a5fa)", fontSize: 10, fontWeight: 800 }}>LP</div>
                     <span style={{ fontWeight: 600 }}>radLP</span>
                   </div>
                   <input

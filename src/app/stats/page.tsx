@@ -12,6 +12,7 @@ import {
   RAD_TOKEN_ADDRESS,
 } from "@/config/contracts";
 import { USDC, EURC } from "@/config/tokens";
+import { TokenLogo } from "@/components/TokenLogo";
 import Navbar from "@/components/Navbar";
 
 export default function StatsPage() {
@@ -104,7 +105,7 @@ export default function StatsPage() {
                 <div className="dex-card-sm">
                   <div className="dex-flex-between" style={{ marginBottom: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div className="token-logo" style={{ background: USDC.color }}>U</div>
+                      <TokenLogo symbol="USDC" size={28} />
                       <span style={{ fontWeight: 600 }}>USDC</span>
                     </div>
                     <span style={{ fontSize: "13px", color: "var(--muted)" }}>{usdcPercent.toFixed(1)}%</span>
@@ -116,7 +117,7 @@ export default function StatsPage() {
                 <div className="dex-card-sm">
                   <div className="dex-flex-between" style={{ marginBottom: "12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <div className="token-logo" style={{ background: EURC.color }}>E</div>
+                      <TokenLogo symbol="EURC" size={28} />
                       <span style={{ fontWeight: 600 }}>EURC</span>
                     </div>
                     <span style={{ fontSize: "13px", color: "var(--muted)" }}>{eurcPercent.toFixed(1)}%</span>
