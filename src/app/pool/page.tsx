@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import {
   useAccount,
   useReadContracts,
@@ -35,12 +35,14 @@ export default function PoolPage() {
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; detail: string; time: string }[]
   >([]);
-  const [stepLabel, setStepLabel] = useState("");
 
   const { writeContractAsync, isPending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
 
+  // Track multi-step flow
+  const [approveStep, setApproveStep] = useState<"none" | "usdc-approved" | "both-approved">("none");
+
   // Pool data
-  const { data: poolData } = useReadContracts({
+  const { data: poolData, refetch: refetchPool } = useReadContracts({
     contracts: [
       { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(0)] },
       { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(1)] },
@@ -67,133 +69,75 @@ export default function PoolPage() {
 
   const isProcessing = isPending || isConfirming;
 
-  // Track what step we're on for auto-continuation
-  const pendingStepRef = useRef<"approve-usdc" | "approve-eurc" | "add-liquidity" | "remove-liquidity" | null>(null);
-
-  // When a tx succeeds, auto-continue to next step
-  const handleTxSuccess = useCallback(async () => {
-    if (!txHash) return;
-    const step = pendingStepRef.current;
-
-    if (step === "approve-usdc") {
-      // USDC approved, now approve EURC
-      pendingStepRef.current = "approve-eurc";
-      setStepLabel("Approving EURC…");
-      setTxHash(undefined);
-      reset();
-      // Small delay to let allowance refetch
-      await new Promise(r => setTimeout(r, 2000));
-      try {
-        const eurcParsed = parseUnits(eurcAmount, 6);
-        await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, eurcParsed] });
-      } catch (err) {
-        console.error("EURC approve error:", err);
-        setStepLabel("");
-        pendingStepRef.current = null;
-      }
-    } else if (step === "approve-eurc") {
-      // EURC approved, now add liquidity
-      pendingStepRef.current = "add-liquidity";
-      setStepLabel("Adding liquidity…");
-      setTxHash(undefined);
-      reset();
-      await new Promise(r => setTimeout(r, 2000));
-      try {
-        const usdcParsed = parseUnits(usdcAmount, 6);
-        const eurcParsed = parseUnits(eurcAmount, 6);
-        await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
-      } catch (err) {
-        console.error("Add liquidity error:", err);
-        setStepLabel("");
-        pendingStepRef.current = null;
-      }
-    } else if (step === "add-liquidity" || step === "remove-liquidity") {
-      // Final step done
-      setTxHistory((prev) => [
-        {
-          hash: txHash,
-          action: step === "add-liquidity" ? "Add Liquidity" : "Remove Liquidity",
-          detail: step === "add-liquidity" ? `${usdcAmount} USDC + ${eurcAmount} EURC` : `${lpAmount} LP`,
-          time: new Date().toLocaleTimeString(),
-        },
-        ...prev.slice(0, 9),
-      ]);
-      setUsdcAmount("");
-      setEurcAmount("");
-      setLpAmount("");
-      setStepLabel("");
-      pendingStepRef.current = null;
-      setTxHash(undefined);
-      reset();
-    }
-  }, [txHash, usdcAmount, eurcAmount, lpAmount, writeContractAsync, setTxHash, reset]);
-
-  useEffect(() => {
-    if (isSuccess && txHash && pendingStepRef.current) {
-      handleTxSuccess();
-    }
-  }, [isSuccess, txHash]);
-
   // Safe parse for button label
   const safeParse = (v: string, decimals: number) => {
     try { return parseUnits(v || "0", decimals); } catch { return BigInt(0); }
   };
   const usdcParsedSafe = safeParse(usdcAmount, 6);
   const eurcParsedSafe = safeParse(eurcAmount, 6);
-  const needsUsdcApproval = usdcParsedSafe > BigInt(0) && usdcAllowance < usdcParsedSafe;
-  const needsEurcApproval = eurcParsedSafe > BigInt(0) && eurcAllowance < eurcParsedSafe;
+  const needsUsdcApproval = approveStep === "none" && usdcParsedSafe > BigInt(0) && usdcAllowance < usdcParsedSafe;
+  const needsEurcApproval = (approveStep === "usdc-approved" || approveStep === "none") && eurcParsedSafe > BigInt(0) && eurcAllowance < eurcParsedSafe && !needsUsdcApproval;
 
-  const handleAddLiquidity = async () => {
+  const handleAddLiquidity = useCallback(async () => {
     if (!address || !usdcAmount || !eurcAmount) return;
     const usdcParsed = parseUnits(usdcAmount, 6);
     const eurcParsed = parseUnits(eurcAmount, 6);
 
     try {
-      if (usdcAllowance < usdcParsed) {
-        // Step 1: Approve USDC (auto-continues to EURC approve, then add_liquidity)
-        pendingStepRef.current = "approve-usdc";
-        setStepLabel("Step 1/3: Approving USDC…");
+      if (approveStep === "none" && usdcAllowance < usdcParsed) {
+        // Step 1: Approve USDC
         await writeContractAsync({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, usdcParsed] });
+        setApproveStep("usdc-approved");
+        reset();
+        refetchPool();
         return;
       }
-      if (eurcAllowance < eurcParsed) {
-        // Step 2: Approve EURC (auto-continues to add_liquidity)
-        pendingStepRef.current = "approve-eurc";
-        setStepLabel("Step 2/3: Approving EURC…");
+      if ((approveStep === "none" || approveStep === "usdc-approved") && eurcAllowance < eurcParsed) {
+        // Step 2: Approve EURC
         await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, eurcParsed] });
+        setApproveStep("both-approved");
+        reset();
+        refetchPool();
         return;
       }
-      // Step 3: Add liquidity directly
-      pendingStepRef.current = "add-liquidity";
-      setStepLabel("Adding liquidity…");
+      // Step 3: Add liquidity
       await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
-    } catch (err) {
-      console.error("Add liquidity error:", err);
-      setStepLabel("");
-      pendingStepRef.current = null;
+      setTxHistory((prev) => [
+        { hash: txHash ?? "", action: "Add Liquidity", detail: `${usdcAmount} USDC + ${eurcAmount} EURC`, time: new Date().toLocaleTimeString() },
+        ...prev.slice(0, 9),
+      ]);
+      setUsdcAmount("");
+      setEurcAmount("");
+      setApproveStep("none");
+      reset();
+      refetchPool();
+    } catch {
+      // Error is already set by useWriteContractCompat
     }
-  };
+  }, [address, usdcAmount, eurcAmount, usdcAllowance, eurcAllowance, approveStep, writeContractAsync, txHash, reset, refetchPool]);
 
-  const handleRemoveLiquidity = async () => {
+  const handleRemoveLiquidity = useCallback(async () => {
     if (!address || !lpAmount) return;
     const lpParsed = parseUnits(lpAmount, 18);
 
     try {
-      pendingStepRef.current = "remove-liquidity";
-      setStepLabel("Removing liquidity…");
       await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [lpParsed, [BigInt(0), BigInt(0)]] });
-    } catch (err) {
-      console.error("Remove liquidity error:", err);
-      setStepLabel("");
-      pendingStepRef.current = null;
+      setTxHistory((prev) => [
+        { hash: txHash ?? "", action: "Remove Liquidity", detail: `${lpAmount} LP`, time: new Date().toLocaleTimeString() },
+        ...prev.slice(0, 9),
+      ]);
+      setLpAmount("");
+      reset();
+      refetchPool();
+    } catch {
+      // Error is already set by useWriteContractCompat
     }
-  };
+  }, [address, lpAmount, writeContractAsync, txHash, reset, refetchPool]);
 
   const getButtonText = () => {
-    if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
-    if (needsUsdcApproval) return "Add Liquidity";
-    if (needsEurcApproval) return "Add Liquidity";
+    if (needsUsdcApproval) return "Approve USDC";
+    if (needsEurcApproval || approveStep === "usdc-approved") return "Approve EURC";
     return "Add Liquidity";
   };
 
@@ -252,9 +196,16 @@ export default function PoolPage() {
           <div style={{ maxWidth: "600px", margin: "0 auto" }}>
             <div className="dex-card">
               <div className="dex-tabs" style={{ marginBottom: "24px" }}>
-                <button className={`dex-tab ${tab === "add" ? "active" : ""}`} onClick={() => setTab("add")}>Add Liquidity</button>
-                <button className={`dex-tab ${tab === "remove" ? "active" : ""}`} onClick={() => setTab("remove")}>Remove Liquidity</button>
+                <button className={`dex-tab ${tab === "add" ? "active" : ""}`} onClick={() => { setTab("add"); setApproveStep("none"); reset(); }}>Add Liquidity</button>
+                <button className={`dex-tab ${tab === "remove" ? "active" : ""}`} onClick={() => { setTab("remove"); setApproveStep("none"); reset(); }}>Remove Liquidity</button>
               </div>
+
+              {/* Approval progress hint */}
+              {approveStep !== "none" && !isProcessing && (
+                <div style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
+                  {approveStep === "usdc-approved" ? "USDC approved ✓ Click again to approve EURC." : "Both tokens approved ✓ Click again to add liquidity."}
+                </div>
+              )}
 
               {/* Error feedback */}
               {txError && (
@@ -301,8 +252,6 @@ export default function PoolPage() {
                 </>
               ) : (
                 <>
-
-
                   <div style={{ marginBottom: "16px" }}>
                     <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
                       <span>LP Token Amount</span>
@@ -319,8 +268,6 @@ export default function PoolPage() {
                       <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => setLpAmount(formatUnits(lpBalance, 18))}>MAX</button>
                     </div>
                   </div>
-
-
 
                   <button
                     className="dex-btn dex-btn-full"

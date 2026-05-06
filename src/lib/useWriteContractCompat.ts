@@ -7,6 +7,18 @@ import { encodeFunctionData } from "viem";
 import { useRadiusAuth } from "@/lib/auth";
 import { useSendTransaction as usePrivySendTx } from "@privy-io/react-auth";
 
+/** Strip viem boilerplate into a short user-facing message. */
+function friendlyError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/user rejected|UserRejectedRequest/i.test(raw)) return "Transaction rejected in wallet.";
+  if (/insufficient funds/i.test(raw)) return "Insufficient funds for gas.";
+  if (/nonce/i.test(raw)) return "Nonce conflict — please retry.";
+  if (/execution reverted/i.test(raw)) return "Transaction would revert — check balances & approvals.";
+  // Truncate long viem dumps
+  const short = raw.split("\n")[0].slice(0, 160);
+  return short || "Transaction failed";
+}
+
 /**
  * writeContract that works with both wagmi (MetaMask/RainbowKit) and Privy (social login).
  */
@@ -20,7 +32,7 @@ export function useWriteContractCompat() {
       setIsPending(false);
     },
     onError: (err) => {
-      setError(String(err) || "Transaction failed");
+      setError(friendlyError(err));
       setIsPending(false);
     },
   });
@@ -60,7 +72,7 @@ export function useWriteContractCompat() {
 
         throw new Error("No wallet connected. Please connect your wallet first.");
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Transaction failed";
+        const msg = friendlyError(err);
         setError(msg);
         setIsPending(false);
         throw err;
