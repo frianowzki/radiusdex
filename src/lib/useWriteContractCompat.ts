@@ -5,15 +5,25 @@ import { useAccount, useWriteContract as useWagmiWrite, useWaitForTransactionRec
 import type { Abi, Address } from "viem";
 import { encodeFunctionData } from "viem";
 import { useRadiusAuth } from "@/lib/auth";
+import { useSendTransaction as usePrivySendTx } from "@privy-io/react-auth";
 
 /**
  * writeContract that works with both wagmi (MetaMask/RainbowKit) and Privy (social login).
- * Falls back to the Privy provider when wagmi has no connected wallet.
  */
 export function useWriteContractCompat() {
   const { isConnected: wagmiConnected } = useAccount();
-  const { provider: privyProvider, authenticated, address: privyAddress } = useRadiusAuth();
+  const { authenticated, address: privyAddress } = useRadiusAuth();
   const wagmiWrite = useWagmiWrite();
+  const { sendTransaction: privySendTransaction } = usePrivySendTx({
+    onSuccess: ({ hash }) => {
+      setTxHash(hash as `0x${string}`);
+      setIsPending(false);
+    },
+    onError: (err) => {
+      setError(String(err) || "Transaction failed");
+      setIsPending(false);
+    },
+  });
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,53 +36,37 @@ export function useWriteContractCompat() {
       setIsPending(true);
       try {
         if (wagmiConnected) {
-          // Use wagmi — standard flow
           const hash = await wagmiWrite.mutateAsync(args as Parameters<typeof wagmiWrite.mutateAsync>[0]);
           setTxHash(hash);
+          setIsPending(false);
           return hash;
         }
 
-        if (authenticated && privyProvider && privyAddress) {
-          // Encode function data and call eth_sendTransaction directly
-          // (Privy's provider uses wallet_sendTransaction which Arc Testnet RPC rejects)
+        if (authenticated && privyAddress) {
           const data = encodeFunctionData({
             abi: args.abi,
             functionName: args.functionName,
             args: args.args as readonly unknown[] | undefined,
           });
-          const txParams = {
-            from: privyAddress,
+          // Privy's sendTransaction handles gas estimation internally
+          privySendTransaction({
             to: args.address,
             data,
-          };
-          // Estimate gas, add 20% buffer
-          let gas: `0x${string}` | undefined;
-          try {
-            const estimated = await privyProvider.request({
-              method: "eth_estimateGas",
-              params: [txParams],
-            }) as string;
-            const buffered = (BigInt(estimated) * BigInt(120)) / BigInt(100);
-            gas = `0x${buffered.toString(16)}`;
-          } catch { /* let node decide */ }
-          const hash = await privyProvider.request({
-            method: "eth_sendTransaction",
-            params: [{ ...txParams, ...(gas ? { gas } : {}) }],
-          }) as `0x${string}`;
-          setTxHash(hash);
-          return hash;
+            chainId: 5042002,
+          });
+          // Hash will be set by onSuccess callback
+          return undefined as unknown as `0x${string}`;
         }
 
         throw new Error("No wallet connected. Please connect your wallet first.");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Transaction failed";
         setError(msg);
-        throw err;
-      } finally {
         setIsPending(false);
+        throw err;
       }
     },
-    [wagmiConnected, privyProvider, authenticated, privyAddress, wagmiWrite]
+    [wagmiConnected, authenticated, privyAddress, wagmiWrite, privySendTransaction]
   );
 
   const reset = useCallback(() => {

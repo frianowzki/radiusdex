@@ -39,6 +39,7 @@ type RadiusAuthContextValue = {
   address?: `0x${string}`;
   chainId?: number;
   provider: EIP1193Provider | null;
+  privyWallet: ConnectedWallet | null;
   user: RadiusUser | null;
   login: (method?: SocialLoginMethod) => Promise<void>;
   logout: () => Promise<void>;
@@ -166,13 +167,14 @@ function RadiusPrivyBridgeProvider({ children }: { children: ReactNode }) {
       address,
       chainId,
       provider,
+      privyWallet: wallet,
       user: normalizeUser(user),
       login,
       logout,
       switchChain,
       signMessage,
     }),
-    [address, authenticated, chainId, login, logout, provider, ready, switchChain, signMessage, user]
+    [address, authenticated, chainId, login, logout, provider, ready, switchChain, signMessage, user, wallet]
   );
 
   return <RadiusAuthContext.Provider value={value}>{children}</RadiusAuthContext.Provider>;
@@ -186,6 +188,7 @@ export function RadiusAuthProvider({ children }: { children: ReactNode }) {
           initialized: true,
           authenticated: false,
           provider: null,
+          privyWallet: null,
           user: null,
           login: async () => { throw new Error("Privy is not configured"); },
           logout: async () => undefined,
