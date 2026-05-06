@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import {
@@ -22,15 +22,13 @@ export default function YieldPage() {
 
   const [amount, setAmount] = useState("");
   const [action, setAction] = useState<"stake" | "unstake">("stake");
-  const [stepLabel, setStepLabel] = useState("");
+  const [postApprove, setPostApprove] = useState(false);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; amount: string; time: string }[]
   >([]);
 
-  const { writeContractAsync, isPending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
-  const pendingStepRef = useRef<"approve" | "stake" | "unstake" | "claim" | null>(null);
+  const { writeContractAsync, isPending, error: txError, reset, isConfirming } = useWriteContractCompat();
 
-  // Read staking + token data
   const { data: stakingData, refetch } = useReadContracts({
     contracts: [
       { address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "staked", args: address ? [address] : undefined },
@@ -52,84 +50,60 @@ export default function YieldPage() {
   const lpAllowance = (stakingData?.[5]?.result as bigint) ?? BigInt(0);
   const radBalance = (stakingData?.[6]?.result as bigint) ?? BigInt(0);
 
-  const isProcessing = isPending || isConfirming || !!stepLabel;
+  const isProcessing = isPending || isConfirming;
 
-  // APR
   const secondsPerYear = BigInt(365 * 24 * 3600);
   const apr = totalStaked > BigInt(0)
     ? Number((rewardRate * secondsPerYear * BigInt(10000)) / totalStaked) / 100
     : 0;
 
   const safeParse = (() => { try { return parseUnits(amount || "0", 18); } catch { return BigInt(0); } })();
-  const needsApproval = action === "stake" && safeParse > BigInt(0) && lpAllowance < safeParse;
-
-  // Auto-continue when a tx confirms
-  useEffect(() => {
-    if (!isSuccess || !txHash) return;
-    const step = pendingStepRef.current;
-    if (!step) return;
-
-    const run = async () => {
-      if (step === "approve") {
-        setStepLabel("Staking…");
-        setTxHash(undefined); reset();
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "stake", args: [parseUnits(amount, 18)] });
-        } catch { setStepLabel(""); pendingStepRef.current = null; }
-      } else if (step === "stake" || step === "unstake" || step === "claim") {
-        setTxHistory(prev => [{
-          hash: txHash,
-          action: step === "stake" ? "Staked" : step === "unstake" ? "Unstaked" : "Claimed",
-          amount: step === "claim" ? `${formatUnits(userEarned, 18)} RAD` : `${amount} LP`,
-          time: new Date().toLocaleTimeString(),
-        }, ...prev.slice(0, 9)]);
-        if (step !== "claim") setAmount("");
-        setStepLabel(""); pendingStepRef.current = null;
-        setTxHash(undefined); reset(); refetch();
-      }
-    };
-    run();
-  }, [isSuccess, txHash]); // eslint-disable-line react-hooks/exhaustive-deps
+  const needsApproval = action === "stake" && !postApprove && safeParse > BigInt(0) && lpAllowance < safeParse;
 
   const handleStake = useCallback(async () => {
     if (!address || !amount) return;
     const parsed = parseUnits(amount, 18);
     try {
-      if (lpAllowance < parsed) {
-        pendingStepRef.current = "approve";
-        setStepLabel("Step 1/2: Approving LP…");
+      if (!postApprove && lpAllowance < parsed) {
         await writeContractAsync({ address: LP_TOKEN_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [STAKING_ADDRESS, parsed] });
+        setPostApprove(true);
+        reset();
+        refetch();
         return;
       }
-      pendingStepRef.current = "stake";
-      setStepLabel("Staking…");
       await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "stake", args: [parsed] });
-    } catch { setStepLabel(""); pendingStepRef.current = null; }
-  }, [address, amount, lpAllowance, writeContractAsync]);
+      setTxHistory(prev => [{ hash: "", action: "Staked", amount: `${amount} LP`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      setAmount("");
+      setPostApprove(false);
+      reset();
+      refetch();
+    } catch { /* Error set by hook */ }
+  }, [address, amount, lpAllowance, postApprove, writeContractAsync, reset, refetch]);
 
   const handleUnstake = useCallback(async () => {
     if (!address || !amount) return;
     try {
-      pendingStepRef.current = "unstake";
-      setStepLabel("Unstaking…");
       await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "withdraw", args: [parseUnits(amount, 18)] });
-    } catch { setStepLabel(""); pendingStepRef.current = null; }
-  }, [address, amount, writeContractAsync]);
+      setTxHistory(prev => [{ hash: "", action: "Unstaked", amount: `${amount} LP`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      setAmount("");
+      reset();
+      refetch();
+    } catch { /* Error set by hook */ }
+  }, [address, amount, writeContractAsync, reset, refetch]);
 
   const handleClaim = useCallback(async () => {
     if (!address || userEarned === BigInt(0)) return;
     try {
-      pendingStepRef.current = "claim";
-      setStepLabel("Claiming RAD…");
       await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "claim", args: [] });
-    } catch { setStepLabel(""); pendingStepRef.current = null; }
-  }, [address, userEarned, writeContractAsync]);
+      setTxHistory(prev => [{ hash: "", action: "Claimed", amount: `${formatUnits(userEarned, 18)} RAD`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      reset();
+      refetch();
+    } catch { /* Error set by hook */ }
+  }, [address, userEarned, writeContractAsync, reset, refetch]);
 
   const getButtonText = () => {
-    if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
-    if (needsApproval) return "Stake LP";
+    if (needsApproval) return "Approve LP";
     return "Stake LP";
   };
 
@@ -184,14 +158,20 @@ export default function YieldPage() {
                       {Number(formatUnits(userEarned, 18)).toFixed(6)} RAD
                     </div>
                   </div>
-                  <button className="dex-btn dex-btn-sm" style={{ padding: "8px 20px", fontSize: 13 }} disabled={isProcessing || userEarned === BigInt(0)} onClick={handleClaim}>Claim</button>
+                  <button className="dex-btn dex-btn-sm" style={{ padding: "8px 20px", fontSize: 13 }} disabled={isProcessing} onClick={handleClaim}>Claim</button>
                 </div>
               )}
 
               <div className="dex-tabs" style={{ marginBottom: "20px" }}>
-                <button className={`dex-tab ${action === "stake" ? "active" : ""}`} onClick={() => { setAction("stake"); setAmount(""); pendingStepRef.current = null; setStepLabel(""); reset(); }}>Stake</button>
-                <button className={`dex-tab ${action === "unstake" ? "active" : ""}`} onClick={() => { setAction("unstake"); setAmount(""); pendingStepRef.current = null; setStepLabel(""); reset(); }}>Unstake</button>
+                <button className={`dex-tab ${action === "stake" ? "active" : ""}`} onClick={() => { setAction("stake"); setAmount(""); setPostApprove(false); reset(); }}>Stake</button>
+                <button className={`dex-tab ${action === "unstake" ? "active" : ""}`} onClick={() => { setAction("unstake"); setAmount(""); setPostApprove(false); reset(); }}>Unstake</button>
               </div>
+
+              {postApprove && !isProcessing && action === "stake" && (
+                <div style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
+                  LP approved ✓ Click &quot;Stake LP&quot; to complete.
+                </div>
+              )}
 
               {txError && (
                 <div style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
@@ -202,21 +182,17 @@ export default function YieldPage() {
               <div style={{ marginBottom: "20px" }}>
                 <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
                   <span>{action === "stake" ? "Amount to Stake" : "Amount to Unstake"}</span>
-                  <span>
-                    Balance: {action === "stake"
-                      ? Number(formatUnits(lpBalance, 18)).toFixed(4)
-                      : Number(formatUnits(userStaked, 18)).toFixed(4)} LP
-                  </span>
+                  <span>Balance: {action === "stake" ? Number(formatUnits(lpBalance, 18)).toFixed(4) : Number(formatUnits(userStaked, 18)).toFixed(4)} LP</span>
                 </div>
                 <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                   <div className="token-badge">
                     <div className="token-logo" style={{ background: "linear-gradient(135deg, #2563eb, #60a5fa)", fontSize: 10, fontWeight: 800 }}>LP</div>
                     <span style={{ fontWeight: 600 }}>radLP</span>
                   </div>
-                  <input className="dex-input" type="text" placeholder="0.00" value={amount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
+                  <input className="dex-input" type="text" placeholder="0.00" value={amount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) { setAmount(v); setPostApprove(false); } }} style={{ flex: 1, textAlign: "right" }} />
                 </div>
                 <div style={{ textAlign: "right", marginTop: "6px" }}>
-                  <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => { const bal = action === "stake" ? lpBalance : userStaked; setAmount(formatUnits(bal, 18)); }}>MAX</button>
+                  <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => { setAmount(formatUnits(action === "stake" ? lpBalance : userStaked, 18)); setPostApprove(false); }}>MAX</button>
                 </div>
               </div>
 
@@ -244,7 +220,6 @@ export default function YieldPage() {
                       <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "12px" }}>{tx.amount}</span>
                       <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{tx.time}</span>
                     </div>
-                    <a href={`https://testnet.arcscan.app/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="tx-hash">{tx.hash.slice(0, 10)}…</a>
                   </div>
                 ))}
               </div>

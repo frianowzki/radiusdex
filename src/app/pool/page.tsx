@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   useAccount,
   useReadContracts,
@@ -34,9 +34,11 @@ export default function PoolPage() {
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; detail: string; time: string }[]
   >([]);
-  const [stepLabel, setStepLabel] = useState("");
 
-  const { writeContractAsync, isPending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
+  const { writeContractAsync, isPending, error: txError, reset, isConfirming } = useWriteContractCompat();
+
+  // Track approval progress: none → usdc-approved → both-approved
+  const [approveStep, setApproveStep] = useState<"none" | "usdc-approved" | "both-approved">("none");
 
   // Pool data
   const { data: poolData, refetch: refetchPool } = useReadContracts({
@@ -57,99 +59,69 @@ export default function PoolPage() {
   const usdcReserve = (poolData?.[0]?.result as bigint) ?? BigInt(0);
   const eurcReserve = (poolData?.[1]?.result as bigint) ?? BigInt(0);
   const lpBalance = (poolData?.[3]?.result as bigint) ?? BigInt(0);
+  const usdcAllowance = (poolData?.[5]?.result as bigint) ?? BigInt(0);
+  const eurcAllowance = (poolData?.[6]?.result as bigint) ?? BigInt(0);
   const userUsdcBalance = (poolData?.[7]?.result as bigint) ?? BigInt(0);
   const userEurcBalance = (poolData?.[8]?.result as bigint) ?? BigInt(0);
 
   const isProcessing = isPending || isConfirming;
 
-  // Track what step we're on for auto-continuation
-  const pendingStepRef = useRef<"approve-usdc" | "approve-eurc" | "add-liquidity" | "remove-liquidity" | null>(null);
-
-  // Auto-continue when a tx confirms
-  useEffect(() => {
-    if (!isSuccess || !txHash) return;
-    const step = pendingStepRef.current;
-    if (!step) return;
-
-    const run = async () => {
-      if (step === "approve-usdc") {
-        setStepLabel("Approving EURC…");
-        setTxHash(undefined);
-        reset();
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, parseUnits(eurcAmount, 6)] });
-        } catch {
-          setStepLabel(""); pendingStepRef.current = null;
-        }
-      } else if (step === "approve-eurc") {
-        setStepLabel("Adding liquidity…");
-        setTxHash(undefined);
-        reset();
-        await new Promise(r => setTimeout(r, 2000));
-        try {
-          await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[parseUnits(usdcAmount, 6), parseUnits(eurcAmount, 6)], BigInt(0)] });
-        } catch {
-          setStepLabel(""); pendingStepRef.current = null;
-        }
-      } else if (step === "add-liquidity" || step === "remove-liquidity") {
-        setTxHistory(prev => [{
-          hash: txHash,
-          action: step === "add-liquidity" ? "Add Liquidity" : "Remove Liquidity",
-          detail: step === "add-liquidity" ? `${usdcAmount} USDC + ${eurcAmount} EURC` : `${lpAmount} LP`,
-          time: new Date().toLocaleTimeString(),
-        }, ...prev.slice(0, 9)]);
-        setUsdcAmount(""); setEurcAmount(""); setLpAmount("");
-        setStepLabel(""); pendingStepRef.current = null;
-        setTxHash(undefined); reset(); refetchPool();
-      }
-    };
-    run();
-  }, [isSuccess, txHash]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleAddLiquidity = useCallback(async () => {
     if (!address || !usdcAmount || !eurcAmount) return;
     const usdcParsed = parseUnits(usdcAmount, 6);
     const eurcParsed = parseUnits(eurcAmount, 6);
-    const usdcAllowance = (poolData?.[5]?.result as bigint) ?? BigInt(0);
-    const eurcAllowance = (poolData?.[6]?.result as bigint) ?? BigInt(0);
 
     try {
-      if (usdcAllowance < usdcParsed) {
-        pendingStepRef.current = "approve-usdc";
-        setStepLabel("Step 1/3: Approving USDC…");
+      if (approveStep === "none" && usdcAllowance < usdcParsed) {
         await writeContractAsync({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, usdcParsed] });
+        setApproveStep("usdc-approved");
+        reset();
+        refetchPool();
         return;
       }
-      if (eurcAllowance < eurcParsed) {
-        pendingStepRef.current = "approve-eurc";
-        setStepLabel("Step 2/3: Approving EURC…");
+      if ((approveStep === "none" || approveStep === "usdc-approved") && eurcAllowance < eurcParsed) {
         await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, eurcParsed] });
+        setApproveStep("both-approved");
+        reset();
+        refetchPool();
         return;
       }
-      pendingStepRef.current = "add-liquidity";
-      setStepLabel("Adding liquidity…");
       await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
+      setTxHistory(prev => [{ hash: "", action: "Add Liquidity", detail: `${usdcAmount} USDC + ${eurcAmount} EURC`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      setUsdcAmount(""); setEurcAmount("");
+      setApproveStep("none");
+      reset();
+      refetchPool();
     } catch {
-      setStepLabel(""); pendingStepRef.current = null;
+      // Error already set by useWriteContractCompat
     }
-  }, [address, usdcAmount, eurcAmount, poolData, writeContractAsync]);
+  }, [address, usdcAmount, eurcAmount, usdcAllowance, eurcAllowance, approveStep, writeContractAsync, reset, refetchPool]);
 
   const handleRemoveLiquidity = useCallback(async () => {
     if (!address || !lpAmount) return;
     try {
-      pendingStepRef.current = "remove-liquidity";
-      setStepLabel("Removing liquidity…");
       await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [parseUnits(lpAmount, 18), [BigInt(0), BigInt(0)]] });
+      setTxHistory(prev => [{ hash: "", action: "Remove Liquidity", detail: `${lpAmount} LP`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      setLpAmount("");
+      reset();
+      refetchPool();
     } catch {
-      setStepLabel(""); pendingStepRef.current = null;
+      // Error already set by useWriteContractCompat
     }
-  }, [address, lpAmount, writeContractAsync]);
+  }, [address, lpAmount, writeContractAsync, reset, refetchPool]);
 
   const getButtonText = () => {
-    if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
+    if (approveStep === "usdc-approved") return "Approve EURC";
+    if (approveStep === "none" && usdcAllowance < parseUnits(usdcAmount || "0", 6)) return "Approve USDC";
+    if (approveStep === "none" && eurcAllowance < parseUnits(eurcAmount || "0", 6)) return "Approve EURC";
     return "Add Liquidity";
+  };
+
+  const getHint = () => {
+    if (approveStep === "usdc-approved" && !isProcessing) return "USDC approved ✓ Click again to approve EURC.";
+    if (approveStep === "both-approved" && !isProcessing) return "Both approved ✓ Click again to add liquidity.";
+    return null;
   };
 
   return (
@@ -159,7 +131,6 @@ export default function PoolPage() {
         <div className="dex-container">
           <h1 style={{ fontSize: "32px", fontWeight: 700, marginBottom: "32px" }}>Pool</h1>
 
-          {/* Pool Info */}
           <div className="dex-card dex-section">
             <div className="dex-flex-between" style={{ marginBottom: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -203,13 +174,18 @@ export default function PoolPage() {
             </div>
           </div>
 
-          {/* Add/Remove Liquidity */}
           <div style={{ maxWidth: "600px", margin: "0 auto" }}>
             <div className="dex-card">
               <div className="dex-tabs" style={{ marginBottom: "24px" }}>
-                <button className={`dex-tab ${tab === "add" ? "active" : ""}`} onClick={() => { setTab("add"); pendingStepRef.current = null; setStepLabel(""); reset(); }}>Add Liquidity</button>
-                <button className={`dex-tab ${tab === "remove" ? "active" : ""}`} onClick={() => { setTab("remove"); pendingStepRef.current = null; setStepLabel(""); reset(); }}>Remove Liquidity</button>
+                <button className={`dex-tab ${tab === "add" ? "active" : ""}`} onClick={() => { setTab("add"); setApproveStep("none"); reset(); }}>Add Liquidity</button>
+                <button className={`dex-tab ${tab === "remove" ? "active" : ""}`} onClick={() => { setTab("remove"); setApproveStep("none"); reset(); }}>Remove Liquidity</button>
               </div>
+
+              {getHint() && (
+                <div style={{ background: "rgba(34,197,94,0.08)", color: "#22c55e", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
+                  {getHint()}
+                </div>
+              )}
 
               {txError && (
                 <div style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 12, padding: 12, fontSize: 13, marginBottom: 16 }}>
@@ -220,36 +196,20 @@ export default function PoolPage() {
               {tab === "add" ? (
                 <>
                   <div style={{ marginBottom: "16px" }}>
-                    <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
-                      <span>USDC Amount</span>
-                    </div>
+                    <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}><span>USDC Amount</span></div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <div className="token-badge">
-                        <TokenLogo symbol="USDC" size={24} />
-                        <span style={{ fontWeight: 600 }}>USDC</span>
-                      </div>
-                      <input className="dex-input" type="text" placeholder="0.00" value={usdcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setUsdcAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
+                      <div className="token-badge"><TokenLogo symbol="USDC" size={24} /><span style={{ fontWeight: 600 }}>USDC</span></div>
+                      <input className="dex-input" type="text" placeholder="0.00" value={usdcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) { setUsdcAmount(v); setApproveStep("none"); reset(); } }} style={{ flex: 1, textAlign: "right" }} />
                     </div>
                   </div>
-
                   <div style={{ marginBottom: "16px" }}>
-                    <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
-                      <span>EURC Amount</span>
-                    </div>
+                    <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}><span>EURC Amount</span></div>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                      <div className="token-badge">
-                        <TokenLogo symbol="EURC" size={24} />
-                        <span style={{ fontWeight: 600 }}>EURC</span>
-                      </div>
-                      <input className="dex-input" type="text" placeholder="0.00" value={eurcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) setEurcAmount(v); }} style={{ flex: 1, textAlign: "right" }} />
+                      <div className="token-badge"><TokenLogo symbol="EURC" size={24} /><span style={{ fontWeight: 600 }}>EURC</span></div>
+                      <input className="dex-input" type="text" placeholder="0.00" value={eurcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) { setEurcAmount(v); setApproveStep("none"); reset(); } }} style={{ flex: 1, textAlign: "right" }} />
                     </div>
                   </div>
-
-                  <button
-                    className="dex-btn dex-btn-full"
-                    disabled={!isConnected || !usdcAmount || !eurcAmount || isProcessing || !!stepLabel}
-                    onClick={handleAddLiquidity}
-                  >
+                  <button className="dex-btn dex-btn-full" disabled={!isConnected || !usdcAmount || !eurcAmount || isProcessing} onClick={handleAddLiquidity}>
                     {!isConnected ? "Connect wallet to add liquidity" : getButtonText()}
                   </button>
                 </>
@@ -271,13 +231,8 @@ export default function PoolPage() {
                       <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => setLpAmount(formatUnits(lpBalance, 18))}>MAX</button>
                     </div>
                   </div>
-
-                  <button
-                    className="dex-btn dex-btn-full"
-                    disabled={!isConnected || !lpAmount || isProcessing || !!stepLabel}
-                    onClick={handleRemoveLiquidity}
-                  >
-                    {!isConnected ? "Connect wallet to remove liquidity" : stepLabel ? <><span className="spinner" /> {stepLabel}</> : "Remove Liquidity"}
+                  <button className="dex-btn dex-btn-full" disabled={!isConnected || !lpAmount || isProcessing} onClick={handleRemoveLiquidity}>
+                    {!isConnected ? "Connect wallet to remove liquidity" : isProcessing ? <><span className="spinner" /> Processing...</> : "Remove Liquidity"}
                   </button>
                 </>
               )}
@@ -293,7 +248,6 @@ export default function PoolPage() {
                       <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "12px" }}>{tx.detail}</span>
                       <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{tx.time}</span>
                     </div>
-                    <a href={`https://testnet.arcscan.app/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="tx-hash">{tx.hash.slice(0, 10)}...</a>
                   </div>
                 ))}
               </div>
