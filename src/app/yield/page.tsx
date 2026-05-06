@@ -104,6 +104,7 @@ export default function YieldPage() {
   const getButtonText = () => {
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
     if (needsApproval) return "Approve LP";
+    if (action === "unstake") return "Unstake LP";
     return "Stake LP";
   };
 
@@ -121,7 +122,7 @@ export default function YieldPage() {
             </p>
           </section>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "32px" }} className="yield-stats-grid">
             <div className="dex-card" style={{ textAlign: "center", padding: "20px" }}>
               <div className="dex-stat-label">Total Staked</div>
               <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px" }}>
@@ -147,6 +148,35 @@ export default function YieldPage() {
               </div>
             </div>
           </div>
+
+          {isConnected && userStaked > BigInt(0) && (
+            <div style={{
+              maxWidth: "520px", margin: "0 auto 24px",
+              background: "linear-gradient(135deg, rgba(37,99,235,0.06), rgba(139,92,246,0.06))",
+              border: "1px solid rgba(37,99,235,0.15)",
+              borderRadius: 16, padding: "16px 24px",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your Staked</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                  {Number(formatUnits(userStaked, 18)).toFixed(4)} LP
+                </div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your Earned</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", color: "#60a5fa" }}>
+                  {Number(formatUnits(userEarned, 18)).toFixed(6)} RAD
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your Share</div>
+                <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", color: "#22c55e" }}>
+                  {totalStaked > BigInt(0) ? ((Number(userStaked) / Number(totalStaked)) * 100).toFixed(2) : "0.00"}%
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ maxWidth: "520px", margin: "0 auto" }}>
             <div className="dex-card">

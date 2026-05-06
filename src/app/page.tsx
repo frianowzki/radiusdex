@@ -46,9 +46,12 @@ export default function HomePage() {
 
   const usdcReserve = data?.[0]?.result ?? BigInt(0);
   const eurcReserve = data?.[1]?.result ?? BigInt(0);
+  const fee = data?.[2]?.result ?? BigInt(0);
 
   const tvl =
     Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
+
+  const feePercent = Number(formatUnits(fee, 10));
 
   return (
     <>
@@ -139,7 +142,7 @@ export default function HomePage() {
                 <div className="dex-stat-label">Total Volume</div>
               </div>
               <div className="dex-stat">
-                <div className="dex-stat-value">0.3%</div>
+                <div className="dex-stat-value">{feePercent > 0 ? `${feePercent.toFixed(4)}%` : "—"}</div>
                 <div className="dex-stat-label">Pool Fee</div>
               </div>
             </div>

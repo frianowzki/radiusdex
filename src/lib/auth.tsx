@@ -140,6 +140,16 @@ function RadiusPrivyBridgeProvider({ children }: { children: ReactNode }) {
     setChainId(undefined);
   }, [privyLogout]);
 
+  // Bug 11: Auto-disconnect embedded wallet if chain is not Arc Testnet
+  useEffect(() => {
+    if (!authenticated || !wallet) return;
+    const isEmbedded = Boolean(getEmbeddedConnectedWallet([wallet]));
+    if (isEmbedded && chainId !== undefined && chainId !== 5042002) {
+      console.warn("Embedded wallet switched to non-Arc chain, logging out.");
+      void logout();
+    }
+  }, [authenticated, wallet, chainId, logout]);
+
   const signMessage = useCallback(
     async (message: string) => {
       if (!address) throw new Error("Wallet unavailable");

@@ -64,6 +64,12 @@ export default function PoolPage() {
   const userUsdcBalance = (poolData?.[7]?.result as bigint) ?? BigInt(0);
   const userEurcBalance = (poolData?.[8]?.result as bigint) ?? BigInt(0);
 
+  // Pool share calculation
+  const totalLPSupply = (poolData?.[4]?.result as bigint) ?? BigInt(0);
+  const poolShare = totalLPSupply > BigInt(0) && lpBalance > BigInt(0)
+    ? (Number(lpBalance) / Number(totalLPSupply)) * 100
+    : 0;
+
   const isProcessing = isPending || isConfirming;
 
   const handleAddLiquidity = useCallback(async () => {
@@ -146,7 +152,7 @@ export default function PoolPage() {
               <span className="dex-badge"><span className="status-dot" />Active</span>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }} className="pool-stats-grid">
               <div className="dex-card-sm" style={{ textAlign: "center" }}>
                 <div className="dex-stat-label">USDC Reserves</div>
                 <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px", color: usdcReserve === BigInt(0) ? "var(--muted)" : undefined }}>
@@ -237,6 +243,26 @@ export default function PoolPage() {
                 </>
               )}
             </div>
+
+            {isConnected && lpBalance > BigInt(0) && (
+              <div className="dex-card" style={{ marginTop: "24px", padding: "20px" }}>
+                <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>Your Position</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your LP Balance</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                      {Number(formatUnits(lpBalance, 18)).toFixed(4)} LP
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Your Pool Share</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", color: "#22c55e" }}>
+                      {poolShare.toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {txHistory.length > 0 && (
               <div className="dex-card" style={{ marginTop: "24px" }}>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { POOL_ADDRESS } from "@/config/contracts";
 
-const POOL_ADDRESS = "0xC24BFc8e4b10500a72A63Bec98CCC989CbDA41d8";
 const EXPLORER_URL = "https://testnet.arcscan.app";
 
 export function TrustBar() {

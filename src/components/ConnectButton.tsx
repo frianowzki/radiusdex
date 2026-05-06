@@ -30,12 +30,32 @@ export function ConnectButton() {
   const activeChainId = wagmiConnected ? wagmiChainId : authChainId;
   const isOnArc = activeChainId === ARC_CHAIN_ID;
 
+  // Bug 1: When connected, check chain — prompt to switch if not on Arc Testnet
+  useEffect(() => {
+    if (!connected || !wagmiConnected) return;
+    if (wagmiChainId !== ARC_CHAIN_ID) {
+      // Auto-prompt switch to Arc for wagmi wallets
+      switchChainAsync({ chainId: ARC_CHAIN_ID }).catch(() => {
+        // User rejected or error — show switch button instead
+      });
+    }
+  }, [connected, wagmiConnected, wagmiChainId, switchChainAsync]);
+
+  // Close dropdown on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    // Bug 2: Also handle touch events for mobile
+    function onTouchOutside(e: TouchEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("touchstart", onTouchOutside);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("touchstart", onTouchOutside);
+    };
   }, []);
 
   async function handleConnect() {
@@ -56,12 +76,24 @@ export function ConnectButton() {
     }
   }
 
+  // Bug 2: Unified handler for both click and touch
+  function handleDisconnect() {
+    logout();
+    setOpen(false);
+  }
+
+  function handleCopyAddress() {
+    navigator.clipboard.writeText(address!);
+    setOpen(false);
+  }
+
   // Disconnected state — single frosted glass button
   if (!connected) {
     return (
       <button
         type="button"
         onClick={handleConnect}
+        onTouchEnd={(e) => { e.preventDefault(); handleConnect(); }}
         disabled={!initialized || busy}
         className="connect-btn"
       >
@@ -83,11 +115,11 @@ export function ConnectButton() {
   return (
     <div className="connect-wrapper" ref={ref}>
       {!isOnArc && (
-        <button type="button" onClick={handleSwitchToArc} className="connect-switch-btn">
+        <button type="button" onClick={handleSwitchToArc} onTouchEnd={(e) => { e.preventDefault(); handleSwitchToArc(); }} className="connect-switch-btn">
           Switch to Arc
         </button>
       )}
-      <button type="button" onClick={() => setOpen(!open)} className="connect-badge">
+      <button type="button" onClick={() => setOpen(!open)} onTouchEnd={(e) => { e.preventDefault(); setOpen(!open); }} className="connect-badge">
         <span className="connect-dot" />
         <span className="connect-addr">
           {user?.name || formatAddress(address!)}
@@ -102,7 +134,7 @@ export function ConnectButton() {
       </button>
 
       {open && (
-        <div className="connect-dropdown">
+        <div className="connect-dropdown" onTouchStart={(e) => e.stopPropagation()}>
           <div className="connect-dropdown-header">
             <span className="connect-dot" style={{ width: 10, height: 10 }} />
             <div>
@@ -116,7 +148,8 @@ export function ConnectButton() {
           </div>
           <button
             type="button"
-            onClick={() => { navigator.clipboard.writeText(address!); setOpen(false); }}
+            onClick={handleCopyAddress}
+            onTouchEnd={(e) => { e.preventDefault(); handleCopyAddress(); }}
             className="connect-dropdown-item"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -139,7 +172,8 @@ export function ConnectButton() {
           </a>
           <button
             type="button"
-            onClick={() => { logout(); setOpen(false); }}
+            onClick={handleDisconnect}
+            onTouchEnd={(e) => { e.preventDefault(); handleDisconnect(); }}
             className="connect-dropdown-item connect-dropdown-logout"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

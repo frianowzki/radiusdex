@@ -61,7 +61,9 @@ export default function SwapPage() {
   });
   const usdcReserve = (poolData?.[0]?.result as bigint) ?? BigInt(0);
   const eurcReserve = (poolData?.[1]?.result as bigint) ?? BigInt(0);
+  const poolFee = (poolData?.[2]?.result as bigint) ?? BigInt(0);
   const totalLiquidity = Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
+  const feePercent = Number(formatUnits(poolFee, 10));
 
   // Quote
   const parsedAmount = fromAmount && !isNaN(Number(fromAmount)) ? parseUnits(fromAmount, fromToken.decimals) : undefined;
@@ -148,7 +150,7 @@ export default function SwapPage() {
             <div className="pool-stats-bar-divider" />
             <div className="pool-stats-bar-item">
               <span className="pool-stats-bar-label">Fee</span>
-              <span className="pool-stats-bar-value">0.3%</span>
+              <span className="pool-stats-bar-value">{feePercent > 0 ? `${feePercent.toFixed(4)}%` : "—"}</span>
             </div>
             <div className="pool-stats-bar-divider" />
             <div className="pool-stats-bar-item" style={{ marginLeft: "auto" }}>
@@ -232,6 +234,31 @@ export default function SwapPage() {
           </div>
 
           <div style={{ marginTop: 32 }}><TrustBar /></div>
+
+          {/* Inline Swap History */}
+          {txHistory.length > 0 && (
+            <div className="dex-card" style={{
+              maxWidth: 520, margin: "24px auto 0",
+              background: "var(--glass-bg-strong)",
+              backdropFilter: "var(--glass-blur)",
+            }}>
+              <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "16px" }}>Recent Swaps</h3>
+              {txHistory.map((tx, i) => (
+                <div key={i} className="tx-item">
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{tx.from} → {tx.to}</span>
+                    <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "12px" }}>{tx.amount}</span>
+                    <span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{tx.time}</span>
+                  </div>
+                  {tx.hash && (
+                    <a href={`https://testnet.arcscan.app/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="tx-hash">
+                      {tx.hash.slice(0, 8)}…{tx.hash.slice(-6)}
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>
