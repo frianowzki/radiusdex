@@ -38,14 +38,12 @@ export default function Navbar() {
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="dex-nav-right">
           <ConnectButton />
-          {/* Hamburger button - mobile only */}
           <button
             type="button"
             className="nav-hamburger"
             onClick={() => setMenuOpen(true)}
-            onTouchEnd={(e) => { e.preventDefault(); setMenuOpen(true); }}
             aria-label="Open menu"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -66,7 +64,6 @@ export default function Navbar() {
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
-                onTouchEnd={(e) => { e.preventDefault(); setMenuOpen(false); }}
                 className="modal-close-btn"
                 aria-label="Close menu"
               >
