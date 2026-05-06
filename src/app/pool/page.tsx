@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   useAccount,
   useReadContracts,
@@ -34,10 +34,10 @@ export default function PoolPage() {
   const [eurcAmount, setEurcAmount] = useState("");
   const [lpAmount, setLpAmount] = useState("");
   const [removeCoinIndex, setRemoveCoinIndex] = useState(0);
-  const [pendingAction, setPendingAction] = useState<"approve" | "action" | null>(null);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; detail: string; time: string }[]
   >([]);
+  const [stepLabel, setStepLabel] = useState("");
 
   const { writeContractAsync, isPending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
 
@@ -52,7 +52,7 @@ export default function PoolPage() {
       { address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, POOL_ADDRESS] : undefined },
       { address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: address ? [address, POOL_ADDRESS] : undefined },
     ],
-    query: { enabled: isConnected && !!address, refetchInterval: 10000 },
+    query: { enabled: isConnected && !!address, refetchInterval: 5000 },
   });
 
   const usdcReserve = (poolData?.[0]?.result as bigint) ?? BigInt(0);
@@ -62,32 +62,77 @@ export default function PoolPage() {
   const usdcAllowance = (poolData?.[5]?.result as bigint) ?? BigInt(0);
   const eurcAllowance = (poolData?.[6]?.result as bigint) ?? BigInt(0);
 
-  useEffect(() => {
-    if (isSuccess && txHash) {
-      if (pendingAction === "action") {
-        setTxHistory((prev) => [
-          {
-            hash: txHash,
-            action: tab === "add" ? "Add Liquidity" : "Remove Liquidity",
-            detail: tab === "add" ? `${usdcAmount} USDC + ${eurcAmount} EURC` : `${lpAmount} LP`,
-            time: new Date().toLocaleTimeString(),
-          },
-          ...prev.slice(0, 9),
-        ]);
-        setUsdcAmount("");
-        setEurcAmount("");
-        setLpAmount("");
-      }
-      setTxHash(undefined);
-      setPendingAction(null);
-      reset();
-    }
-  }, [isSuccess]);
-
   const isProcessing = isPending || isConfirming;
   const totalLiquidity = Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
 
-  // Safe parse for button label (won't throw on partial input)
+  // Track what step we're on for auto-continuation
+  const pendingStepRef = useRef<"approve-usdc" | "approve-eurc" | "add-liquidity" | "remove-liquidity" | null>(null);
+
+  // When a tx succeeds, auto-continue to next step
+  const handleTxSuccess = useCallback(async () => {
+    if (!txHash) return;
+    const step = pendingStepRef.current;
+
+    if (step === "approve-usdc") {
+      // USDC approved, now approve EURC
+      pendingStepRef.current = "approve-eurc";
+      setStepLabel("Approving EURC…");
+      setTxHash(undefined);
+      reset();
+      // Small delay to let allowance refetch
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const eurcParsed = parseUnits(eurcAmount, 6);
+        await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, eurcParsed] });
+      } catch (err) {
+        console.error("EURC approve error:", err);
+        setStepLabel("");
+        pendingStepRef.current = null;
+      }
+    } else if (step === "approve-eurc") {
+      // EURC approved, now add liquidity
+      pendingStepRef.current = "add-liquidity";
+      setStepLabel("Adding liquidity…");
+      setTxHash(undefined);
+      reset();
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const usdcParsed = parseUnits(usdcAmount, 6);
+        const eurcParsed = parseUnits(eurcAmount, 6);
+        await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
+      } catch (err) {
+        console.error("Add liquidity error:", err);
+        setStepLabel("");
+        pendingStepRef.current = null;
+      }
+    } else if (step === "add-liquidity" || step === "remove-liquidity") {
+      // Final step done
+      setTxHistory((prev) => [
+        {
+          hash: txHash,
+          action: step === "add-liquidity" ? "Add Liquidity" : "Remove Liquidity",
+          detail: step === "add-liquidity" ? `${usdcAmount} USDC + ${eurcAmount} EURC` : `${lpAmount} LP`,
+          time: new Date().toLocaleTimeString(),
+        },
+        ...prev.slice(0, 9),
+      ]);
+      setUsdcAmount("");
+      setEurcAmount("");
+      setLpAmount("");
+      setStepLabel("");
+      pendingStepRef.current = null;
+      setTxHash(undefined);
+      reset();
+    }
+  }, [txHash, usdcAmount, eurcAmount, lpAmount, writeContractAsync, setTxHash, reset]);
+
+  useEffect(() => {
+    if (isSuccess && txHash && pendingStepRef.current) {
+      handleTxSuccess();
+    }
+  }, [isSuccess, txHash]);
+
+  // Safe parse for button label
   const safeParse = (v: string, decimals: number) => {
     try { return parseUnits(v || "0", decimals); } catch { return BigInt(0); }
   };
@@ -103,18 +148,28 @@ export default function PoolPage() {
 
     try {
       if (usdcAllowance < usdcParsed) {
-        setPendingAction("approve");
+        // Step 1: Approve USDC (auto-continues to EURC approve, then add_liquidity)
+        pendingStepRef.current = "approve-usdc";
+        setStepLabel("Step 1/3: Approving USDC…");
         await writeContractAsync({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, usdcParsed] });
         return;
       }
       if (eurcAllowance < eurcParsed) {
-        setPendingAction("approve");
+        // Step 2: Approve EURC (auto-continues to add_liquidity)
+        pendingStepRef.current = "approve-eurc";
+        setStepLabel("Step 2/3: Approving EURC…");
         await writeContractAsync({ address: EURC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, eurcParsed] });
         return;
       }
-      setPendingAction("action");
+      // Step 3: Add liquidity directly
+      pendingStepRef.current = "add-liquidity";
+      setStepLabel("Adding liquidity…");
       await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
-    } catch (err) { console.error("Add liquidity error:", err); }
+    } catch (err) {
+      console.error("Add liquidity error:", err);
+      setStepLabel("");
+      pendingStepRef.current = null;
+    }
   };
 
   const handleRemoveLiquidity = async () => {
@@ -122,19 +177,25 @@ export default function PoolPage() {
     const lpParsed = parseUnits(lpAmount, 18);
 
     try {
-      setPendingAction("action");
+      pendingStepRef.current = "remove-liquidity";
+      setStepLabel("Removing liquidity…");
       if (removeMode === "dual") {
         await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [lpParsed, [BigInt(0), BigInt(0)]] });
       } else {
         await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity_one_coin", args: [lpParsed, BigInt(removeCoinIndex), BigInt(0)] });
       }
-    } catch (err) { console.error("Remove liquidity error:", err); }
+    } catch (err) {
+      console.error("Remove liquidity error:", err);
+      setStepLabel("");
+      pendingStepRef.current = null;
+    }
   };
 
   const getButtonText = () => {
-    if (isProcessing) return <><span className="spinner" /> Processing...</>;
-    if (needsUsdcApproval) return "Approve USDC";
-    if (needsEurcApproval) return "Approve EURC";
+    if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
+    if (isProcessing) return <><span className="spinner" /> Processing…</>;
+    if (needsUsdcApproval) return "Add Liquidity (auto-approve)";
+    if (needsEurcApproval) return "Add Liquidity (auto-approve)";
     return "Add Liquidity";
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useAccount,
   useReadContracts,
@@ -42,10 +42,11 @@ export default function YieldPage() {
   const [activeVault, setActiveVault] = useState(0);
   const [vaultTab, setVaultTab] = useState<VaultTab>("deposit");
   const [amount, setAmount] = useState("");
-  const [pendingAction, setPendingAction] = useState<"approve" | "action" | null>(null);
+
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; vault: string; amount: string; time: string }[]
   >([]);
+  const [stepLabel, setStepLabel] = useState("");
 
   const vault = VAULTS[activeVault];
 
@@ -74,20 +75,37 @@ export default function YieldPage() {
   const sharePriceNum = Number(formatUnits(sharePrice, vault.token.decimals));
   const userSharesValue = Number(formatUnits(userShares, 18)) * sharePriceNum;
 
+  // Auto-continue: after approval succeeds, trigger deposit
+  const pendingStepRef = useRef<"approve" | "deposit" | "withdraw" | null>(null);
+
   useEffect(() => {
     if (isSuccess && txHash) {
-      if (pendingAction === "action") {
+      const step = pendingStepRef.current;
+      if (step === "approve") {
+        // Approval done, now deposit
+        pendingStepRef.current = "deposit";
+        setStepLabel("Depositing…");
+        setTxHash(undefined);
+        reset();
+        setTimeout(async () => {
+          try {
+            const parsed = parseUnits(amount, vault.token.decimals);
+            await writeContractAsync({ address: vault.vaultAddress, abi: VAULT_ABI, functionName: "deposit", args: [parsed, address!] });
+          } catch (err) { console.error("Auto-deposit error:", err); setStepLabel(""); pendingStepRef.current = null; }
+        }, 2000);
+      } else if (step === "deposit" || step === "withdraw") {
         setTxHistory((prev) => [
-          { hash: txHash, action: vaultTab === "deposit" ? "Deposit" : "Withdraw", vault: vault.symbol, amount, time: new Date().toLocaleTimeString() },
+          { hash: txHash, action: step === "deposit" ? "Deposit" : "Withdraw", vault: vault.symbol, amount, time: new Date().toLocaleTimeString() },
           ...prev.slice(0, 9),
         ]);
         setAmount("");
+        setStepLabel("");
+        pendingStepRef.current = null;
+        setTxHash(undefined);
+        reset();
       }
-      setTxHash(undefined);
-      setPendingAction(null);
-      reset();
     }
-  }, [isSuccess]);
+  }, [isSuccess, txHash]);
 
   const isProcessing = isPending || isConfirming;
 
@@ -104,22 +122,30 @@ export default function YieldPage() {
     try {
       if (vaultTab === "deposit") {
         if (allowance < parsed) {
-          setPendingAction("approve");
+          pendingStepRef.current = "approve";
+          setStepLabel("Step 1/2: Approving…");
           await writeContractAsync({ address: vault.token.address, abi: ERC20_ABI, functionName: "approve", args: [vault.vaultAddress, parsed] });
           return;
         }
-        setPendingAction("action");
+        pendingStepRef.current = "deposit";
+        setStepLabel("Depositing…");
         await writeContractAsync({ address: vault.vaultAddress, abi: VAULT_ABI, functionName: "deposit", args: [parsed, address] });
       } else {
-        setPendingAction("action");
+        pendingStepRef.current = "withdraw";
+        setStepLabel("Withdrawing…");
         await writeContractAsync({ address: vault.vaultAddress, abi: VAULT_ABI, functionName: "withdraw", args: [parsed, address, address] });
       }
-    } catch (err) { console.error("Vault action error:", err); }
+    } catch (err) {
+      console.error("Vault action error:", err);
+      setStepLabel("");
+      pendingStepRef.current = null;
+    }
   };
 
   const getButtonText = () => {
-    if (isProcessing) return <><span className="spinner" /> Processing...</>;
-    if (needsApproval) return `Approve ${vault.token.symbol}`;
+    if (stepLabel) return <><span className="spinner" /> {stepLabel}</>;
+    if (isProcessing) return <><span className="spinner" /> Processing…</>;
+    if (needsApproval) return `Deposit ${vault.token.symbol} (auto-approve)`;
     if (vaultTab === "deposit") return `Deposit ${vault.token.symbol}`;
     return `Withdraw ${vault.symbol}`;
   };

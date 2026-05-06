@@ -25,7 +25,6 @@ contract RadiusPool is ReentrancyGuard {
     uint256 public fee = 30; // 0.30% (30/10000)
     uint256 public constant A = 100; // Amplification factor
     uint256 public constant N_COINS = 2;
-    uint256 public constant PRECISION = 1e18;
 
     // --- Events ---
     event TokenSwapped(address indexed sender, uint256 inputIndex, uint256 outputIndex, uint256 inputAmount, uint256 outputAmount);
@@ -53,8 +52,9 @@ contract RadiusPool is ReentrancyGuard {
     }
 
     /**
-     * @notice StableSwap invariant: A * n^n * sum(x_i) + D = A * D * n^n + D^(n+1) / (n^n * prod(x_i))
-     *         Solved iteratively via Newton's method.
+     * @notice StableSwap D computation (Newton's method).
+     *         Uses integer-only math without external precision scaling.
+     *         For N=2: Ann * sum + D_P * N = D * (Ann - 1 + (N+1) * D_P / D)
      */
     function getD(uint256[2] memory xp, uint256 amp) public pure returns (uint256) {
         uint256 sumXp = xp[0] + xp[1];
@@ -70,7 +70,7 @@ contract RadiusPool is ReentrancyGuard {
             dP = dP / (N_COINS ** N_COINS);
 
             uint256 dPrev = d;
-            d = (ann * sumXp / PRECISION + dP * N_COINS) * d / ((ann - PRECISION) * d / PRECISION + (N_COINS + 1) * dP);
+            d = (ann * sumXp + dP * N_COINS) * d / ((ann - 1) * d + (N_COINS + 1) * dP);
 
             if (d > dPrev) {
                 if (d - dPrev <= 1) return d;
@@ -100,8 +100,8 @@ contract RadiusPool is ReentrancyGuard {
             s += xp_k;
             c = c * d / (xp_k * N_COINS);
         }
-        c = c * d * PRECISION / (ann * N_COINS);
-        uint256 b = s + d * PRECISION / ann;
+        c = c * d / (ann * N_COINS);
+        uint256 b = s + d / ann;
         uint256 yPrev;
         uint256 y = d;
 
@@ -178,19 +178,19 @@ contract RadiusPool is ReentrancyGuard {
     function add_liquidity(uint256[2] memory amounts, uint256 minMintAmount) external nonReentrant returns (uint256 minted) {
         require(amounts[0] > 0 || amounts[1] > 0, "zero amounts");
 
+        uint256[2] memory oldBalances;
+        oldBalances[0] = balances(0);
+        oldBalances[1] = balances(1);
+
         // Transfer tokens in
         if (amounts[0] > 0) token0.safeTransferFrom(msg.sender, address(this), amounts[0]);
         if (amounts[1] > 0) token1.safeTransferFrom(msg.sender, address(this), amounts[1]);
-
-        uint256[2] memory oldBalances;
-        oldBalances[0] = balances(0) - amounts[0];
-        oldBalances[1] = balances(1) - amounts[1];
 
         uint256[2] memory newBalances;
         newBalances[0] = balances(0);
         newBalances[1] = balances(1);
 
-        uint256 oldD = oldBalances[0] > 0 || oldBalances[1] > 0 ? getD(oldBalances, A) : 0;
+        uint256 oldD = (oldBalances[0] > 0 || oldBalances[1] > 0) ? getD(oldBalances, A) : 0;
         uint256 newD = getD(newBalances, A);
 
         if (oldD == 0) {
@@ -216,14 +216,14 @@ contract RadiusPool is ReentrancyGuard {
     function remove_liquidity(uint256 amount, uint256[2] memory minAmounts) external nonReentrant returns (uint256[2] memory amounts) {
         require(amount > 0, "zero amount");
 
-        uint256 totalSupply = lpToken.totalSupply();
-        require(totalSupply > 0, "no liquidity");
+        uint256 totalLpSupply = lpToken.totalSupply();
+        require(totalLpSupply > 0, "no liquidity");
 
         uint256 bal0 = balances(0);
         uint256 bal1 = balances(1);
 
-        amounts[0] = bal0 * amount / totalSupply;
-        amounts[1] = bal1 * amount / totalSupply;
+        amounts[0] = bal0 * amount / totalLpSupply;
+        amounts[1] = bal1 * amount / totalLpSupply;
 
         require(amounts[0] >= minAmounts[0] && amounts[1] >= minAmounts[1], "slippage exceeded");
 
@@ -249,20 +249,16 @@ contract RadiusPool is ReentrancyGuard {
         xp[1] = balances(1);
 
         uint256 d0 = getD(xp, A);
-        uint256 totalSupply = lpToken.totalSupply();
+        uint256 totalLpSupply = lpToken.totalSupply();
 
         // Calculate new D after removing burnAmount
-        uint256 d1 = d0 * (totalSupply - burnAmount) / totalSupply;
+        uint256 d1 = d0 * (totalLpSupply - burnAmount) / totalLpSupply;
 
         // Calculate new balance of the remaining token
-        uint256 newY = get_y(1 - i, i, i == 0 ? xp[0] * d1 / d0 : xp[0], [i == 0 ? xp[0] : xp[0] * d1 / d0, i == 1 ? xp[1] : xp[1] * d1 / d0]);
+        // received = balance_i - new_balance_i
+        received = (xp[i] - (xp[i] * d1 / d0)) - 1;
 
-        // Simplified: amount = (balance_i - new_balance_i) - 1
-        uint256 newBalI = i == 0 ? (d1 * xp[0] / d0) : (d1 * xp[1] / d0);
-        // Actually, use the proportional reduction approach:
-        received = (xp[i] - (i == 0 ? xp[0] * d1 / d0 : xp[1] * d1 / d0)) - 1;
-
-        // Apply fee on the received amount (fee on single-coin withdrawal)
+        // Apply fee on the received amount
         uint256 feeAmount = received * fee / FEE_DENOMINATOR;
         received -= feeAmount;
 
@@ -284,10 +280,10 @@ contract RadiusPool is ReentrancyGuard {
         xp[1] = balances(1);
 
         uint256 d0 = getD(xp, A);
-        uint256 totalSupply = lpToken.totalSupply();
-        if (totalSupply == 0) return 0;
+        uint256 totalLpSupply = lpToken.totalSupply();
+        if (totalLpSupply == 0) return 0;
 
-        uint256 d1 = d0 * (totalSupply - burnAmount) / totalSupply;
+        uint256 d1 = d0 * (totalLpSupply - burnAmount) / totalLpSupply;
         uint256 received = (xp[i] - (xp[i] * d1 / d0)) - 1;
         uint256 feeAmount = received * fee / FEE_DENOMINATOR;
         return received - feeAmount;
