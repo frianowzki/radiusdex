@@ -218,7 +218,7 @@ export default function YieldPage() {
             <div className="dex-card" style={{ textAlign: "center", padding: "20px" }}>
               <div className="dex-stat-label">APR</div>
               <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", marginTop: "8px", color: "#22c55e" }}>
-                {apr > 0 ? `${apr.toFixed(2)}%` : "—"}
+                {apr > 0 ? (apr > 999.99 ? "999.99%+" : `${apr.toFixed(2)}%`) : "—"}
               </div>
             </div>
             <div className="dex-card" style={{ textAlign: "center", padding: "20px" }}>
