@@ -40,13 +40,24 @@ export function useWriteContractCompat() {
             functionName: args.functionName,
             args: args.args as readonly unknown[] | undefined,
           });
+          const txParams = {
+            from: privyAddress,
+            to: args.address,
+            data,
+          };
+          // Estimate gas, add 20% buffer
+          let gas: `0x${string}` | undefined;
+          try {
+            const estimated = await privyProvider.request({
+              method: "eth_estimateGas",
+              params: [txParams],
+            }) as string;
+            const buffered = (BigInt(estimated) * BigInt(120)) / BigInt(100);
+            gas = `0x${buffered.toString(16)}`;
+          } catch { /* let node decide */ }
           const hash = await privyProvider.request({
             method: "eth_sendTransaction",
-            params: [{
-              from: privyAddress,
-              to: args.address,
-              data,
-            }],
+            params: [{ ...txParams, ...(gas ? { gas } : {}) }],
           }) as `0x${string}`;
           setTxHash(hash);
           return hash;
