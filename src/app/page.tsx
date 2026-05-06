@@ -14,32 +14,21 @@ import {
 import Navbar from "@/components/Navbar";
 import { TrustBar } from "@/components/TrustBar";
 
+const NAV_ITEMS = [
+  { href: "/swap", label: "Swap", desc: "Exchange USDC ↔ EURC", color: "#2563eb" },
+  { href: "/bridge", label: "Bridge", desc: "Cross-chain USDC transfers", color: "#7c3aed" },
+  { href: "/pool", label: "Pool", desc: "Provide liquidity", color: "#0891b2" },
+  { href: "/yield", label: "Yield", desc: "Stake LP, earn RAD", color: "#059669" },
+  { href: "/stats", label: "Stats", desc: "Protocol analytics", color: "#d97706" },
+];
+
 export default function HomePage() {
   const { data } = useReadContracts({
     contracts: [
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "balances",
-        args: [BigInt(USDC_INDEX)],
-      },
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "balances",
-        args: [BigInt(EURC_INDEX)],
-      },
-      {
-        address: POOL_ADDRESS,
-        abi: POOL_ABI,
-        functionName: "fee",
-      },
-      {
-        address: LP_TOKEN_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "balanceOf",
-        args: [POOL_ADDRESS],
-      },
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(USDC_INDEX)] },
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "balances", args: [BigInt(EURC_INDEX)] },
+      { address: POOL_ADDRESS, abi: POOL_ABI, functionName: "fee" },
+      { address: LP_TOKEN_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: [POOL_ADDRESS] },
     ],
     query: { refetchInterval: 15000 },
   });
@@ -48,9 +37,7 @@ export default function HomePage() {
   const eurcReserve = data?.[1]?.result ?? BigInt(0);
   const fee = data?.[2]?.result ?? BigInt(0);
 
-  const tvl =
-    Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
-
+  const tvl = Number(formatUnits(usdcReserve, 6)) + Number(formatUnits(eurcReserve, 6));
   const feePercent = Number(formatUnits(fee, 10));
 
   return (
@@ -59,9 +46,7 @@ export default function HomePage() {
       <div className="dex-page">
         <div className="dex-container">
           {/* Hero */}
-          <section
-            style={{ textAlign: "center", paddingTop: "80px", paddingBottom: "60px" }}
-          >
+          <section style={{ textAlign: "center", paddingTop: "80px", paddingBottom: "40px" }}>
             <h1
               className="hero-title-lg"
               style={{
@@ -69,8 +54,7 @@ export default function HomePage() {
                 fontWeight: 800,
                 letterSpacing: "-0.03em",
                 lineHeight: 1.1,
-                background:
-                  "linear-gradient(135deg, #f1f5f9 0%, #60a5fa 50%, #8b5cf6 100%)",
+                background: "linear-gradient(135deg, #f1f5f9 0%, #60a5fa 50%, #8b5cf6 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
@@ -78,28 +62,13 @@ export default function HomePage() {
             >
               RADIUS DEX
             </h1>
-            <p
-              style={{
-                fontSize: "20px",
-                color: "var(--muted)",
-                marginTop: "20px",
-                maxWidth: "500px",
-                margin: "20px auto 0",
-              }}
-            >
+            <p style={{ fontSize: "20px", color: "var(--muted)", marginTop: "20px", maxWidth: "500px", margin: "20px auto 0" }}>
               Stablecoin swaps on Arc Network.
               <br />
               Low slippage. Deep liquidity. Powered by Radius.
             </p>
 
-            <div
-              style={{
-                display: "flex",
-                gap: "16px",
-                justifyContent: "center",
-                marginTop: "40px",
-              }}
-            >
+            <div style={{ display: "flex", gap: "16px", justifyContent: "center", marginTop: "40px" }}>
               <Link
                 href="/swap"
                 className="dex-btn"
@@ -121,16 +90,29 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Stats Row — centered 3 columns */}
+          {/* Navigation Grid — always visible, especially on mobile */}
+          <section className="dex-section">
+            <div className="home-nav-grid">
+              {NAV_ITEMS.map((item) => (
+                <Link key={item.href} href={item.href} className="home-nav-card">
+                  <div className="home-nav-dot" style={{ background: item.color }} />
+                  <div>
+                    <div className="home-nav-label">{item.label}</div>
+                    <div className="home-nav-desc">{item.desc}</div>
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: "auto", opacity: 0.4 }}>
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Stats Row */}
           <section className="dex-section">
             <div
               className="dex-card home-stats-grid"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "24px",
-                textAlign: "center",
-              }}
+              style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", textAlign: "center" }}
             >
               <div className="dex-stat">
                 <div className="dex-stat-value">
@@ -155,30 +137,11 @@ export default function HomePage() {
               <Link href="/swap" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className="dex-card" style={{ cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: "50%",
-                        background: "radial-gradient(circle at 35% 35%, #60a5fa, #2563eb)",
-                        flexShrink: 0,
-                        boxShadow: "0 0 20px rgba(59,130,246,0.35)",
-                      }}
-                    />
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #60a5fa, #2563eb)", flexShrink: 0, boxShadow: "0 0 20px rgba(59,130,246,0.35)" }} />
                     <div>
-                      <h3
-                        style={{
-                          fontSize: "24px",
-                          fontWeight: 700,
-                          marginBottom: "10px",
-                        }}
-                      >
-                        Swap
-                      </h3>
+                      <h3 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "10px" }}>Swap</h3>
                       <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                        Exchange USDC and EURC with minimal slippage through our
-                        Radius Swap pool. Curve-style pricing ensures deep
-                        liquidity for stablecoin pairs.
+                        Exchange USDC and EURC with minimal slippage through our Radius Swap pool. Curve-style pricing ensures deep liquidity for stablecoin pairs.
                       </p>
                     </div>
                   </div>
@@ -188,30 +151,11 @@ export default function HomePage() {
               <Link href="/yield" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className="dex-card" style={{ cursor: "pointer" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: "20px" }}>
-                    <div
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: "50%",
-                        background: "radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)",
-                        flexShrink: 0,
-                        boxShadow: "0 0 20px rgba(139,92,246,0.35)",
-                      }}
-                    />
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #a78bfa, #7c3aed)", flexShrink: 0, boxShadow: "0 0 20px rgba(139,92,246,0.35)" }} />
                     <div>
-                      <h3
-                        style={{
-                          fontSize: "24px",
-                          fontWeight: 700,
-                          marginBottom: "10px",
-                        }}
-                      >
-                        Yield
-                      </h3>
+                      <h3 style={{ fontSize: "24px", fontWeight: 700, marginBottom: "10px" }}>Yield</h3>
                       <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-                        Deposit into Radius USDC or Radius EURC vaults to earn yield on
-                        your stablecoins. Automated strategies optimize returns
-                        while preserving capital.
+                        Stake your Radius LP tokens and earn RAD rewards. The more you stake, the more you earn. No lockup — unstake anytime.
                       </p>
                     </div>
                   </div>
