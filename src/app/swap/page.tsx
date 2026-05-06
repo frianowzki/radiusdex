@@ -1,20 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   useAccount,
   useReadContract,
   useReadContracts,
-  useWriteContract,
-  useWaitForTransactionReceipt,
 } from "wagmi";
 import { formatUnits, parseUnits } from "viem";
 import {
   POOL_ADDRESS,
   POOL_ABI,
   ERC20_ABI,
-  USDC_ADDRESS,
-  EURC_ADDRESS,
   SLIPPAGE_BPS,
 } from "@/config/contracts";
 import { TOKENS, type Token } from "@/config/tokens";
@@ -23,6 +19,7 @@ import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
 import { useRadiusAuth } from "@/lib/auth";
+import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
 
 export default function SwapPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -33,10 +30,11 @@ export default function SwapPage() {
   const [fromToken, setFromToken] = useState<Token>(TOKENS[0]);
   const [toToken, setToToken] = useState<Token>(TOKENS[1]);
   const [fromAmount, setFromAmount] = useState("");
-  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [txHistory, setTxHistory] = useState<
     { hash: string; from: string; to: string; amount: string; time: string }[]
   >([]);
+
+  const { writeContractAsync, isPending: isWritePending, txHash, setTxHash, error: txError, reset, isConfirming, isSuccess } = useWriteContractCompat();
 
   // Balances
   const { data: balanceData } = useReadContracts({
@@ -77,46 +75,57 @@ export default function SwapPage() {
   const quoteAmount = quoteResult as bigint | undefined;
   const minReceive = quoteAmount ? (quoteAmount * (BigInt(10000) - SLIPPAGE_BPS)) / BigInt(10000) : BigInt(0);
 
-  // Write hooks
-  const { mutateAsync: writeContract, isPending: isWritePending, reset: resetWrite } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-
-  useEffect(() => {
-    if (isSuccess && txHash && fromAmount) {
-      setTxHistory((prev) => [{ hash: txHash, from: fromToken.symbol, to: toToken.symbol, amount: fromAmount, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
-      setFromAmount("");
-      setTxHash(undefined);
-      resetWrite();
-    }
-  }, [isSuccess]);
-
   const needsApproval = allowance !== undefined && parsedAmount !== undefined && allowance < parsedAmount;
   const isProcessing = isWritePending || isConfirming;
+
+  // Track step for auto-continuation
+  const pendingStepRef = useRef<"approve" | "swap" | null>(null);
+
+  // Auto-continue: approval → swap
+  useEffect(() => {
+    if (!isSuccess || !txHash) return;
+    const step = pendingStepRef.current;
+    if (!step) return;
+
+    if (step === "approve") {
+      setTxHash(undefined);
+      reset();
+      // Allowance refetch, then auto-swap
+      setTimeout(async () => {
+        try {
+          pendingStepRef.current = "swap";
+          const swapHash = await writeContractAsync({
+            address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange",
+            args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount!, minReceive],
+          });
+          // swapHash set by hook
+        } catch {
+          pendingStepRef.current = null;
+        }
+      }, 2000);
+    } else if (step === "swap") {
+      setTxHistory(prev => [{ hash: txHash, from: fromToken.symbol, to: toToken.symbol, amount: fromAmount, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      setFromAmount("");
+      pendingStepRef.current = null;
+      setTxHash(undefined);
+      reset();
+    }
+  }, [isSuccess, txHash]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSwap = useCallback(async () => {
     if (!parsedAmount || !address || parsedAmount <= BigInt(0)) return;
     try {
       if (needsApproval) {
-        const approveHash = await writeContract({ address: fromToken.address, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, parsedAmount] });
-        setTxHash(approveHash);
+        pendingStepRef.current = "approve";
+        await writeContractAsync({ address: fromToken.address, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, parsedAmount] });
         return;
       }
-      const swapHash = await writeContract({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange", args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount, minReceive] });
-      setTxHash(swapHash);
-    } catch (err) { console.error("Swap error:", err); }
-  }, [parsedAmount, address, needsApproval, fromToken, toToken, minReceive, writeContract]);
-
-  const { isSuccess: approvalSuccess } = useWaitForTransactionReceipt({ hash: needsApproval ? txHash : undefined });
-  useEffect(() => {
-    if (approvalSuccess && needsApproval === false && parsedAmount && parsedAmount > BigInt(0)) {
-      (async () => {
-        try {
-          const swapHash = await writeContract({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange", args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount, minReceive] });
-          setTxHash(swapHash);
-        } catch (err) { console.error("Post-approval swap error:", err); }
-      })();
+      pendingStepRef.current = "swap";
+      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange", args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount, minReceive] });
+    } catch {
+      pendingStepRef.current = null;
     }
-  }, [approvalSuccess]);
+  }, [parsedAmount, address, needsApproval, fromToken, toToken, minReceive, writeContractAsync]);
 
   const handleSwitchTokens = () => {
     const tmp = fromToken;
@@ -202,6 +211,13 @@ export default function SwapPage() {
               <div className="swap-quote-info">
                 <div className="swap-quote-row"><span>Rate</span><span>1 {fromToken.symbol} = {(Number(formatUnits(quoteAmount, toToken.decimals)) / Number(fromAmount || 1)).toFixed(6)} {toToken.symbol}</span></div>
                 <div className="swap-quote-row"><span>Min. received (1% slippage)</span><span>{Number(formatUnits(minReceive, toToken.decimals)).toFixed(6)} {toToken.symbol}</span></div>
+              </div>
+            )}
+
+            {/* Error */}
+            {txError && (
+              <div style={{ background: "rgba(239,68,68,0.08)", color: "#ef4444", borderRadius: 12, padding: 12, fontSize: 13, marginTop: 12 }}>
+                {txError}
               </div>
             )}
 
