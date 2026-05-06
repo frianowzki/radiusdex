@@ -20,7 +20,6 @@ import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
 
 type PoolTab = "add" | "remove";
-type RemoveMode = "dual" | "single";
 
 export default function PoolPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -28,12 +27,10 @@ export default function PoolPage() {
   const address = wagmiAddress ?? authAddress;
   const isConnected = wagmiConnected || authenticated;
   const [tab, setTab] = useState<PoolTab>("add");
-  const [removeMode, setRemoveMode] = useState<RemoveMode>("dual");
 
   const [usdcAmount, setUsdcAmount] = useState("");
   const [eurcAmount, setEurcAmount] = useState("");
   const [lpAmount, setLpAmount] = useState("");
-  const [removeCoinIndex, setRemoveCoinIndex] = useState(0);
   const [txHistory, setTxHistory] = useState<
     { hash: string; action: string; detail: string; time: string }[]
   >([]);
@@ -179,11 +176,7 @@ export default function PoolPage() {
     try {
       pendingStepRef.current = "remove-liquidity";
       setStepLabel("Removing liquidity…");
-      if (removeMode === "dual") {
-        await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [lpParsed, [BigInt(0), BigInt(0)]] });
-      } else {
-        await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity_one_coin", args: [lpParsed, BigInt(removeCoinIndex), BigInt(0)] });
-      }
+      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [lpParsed, [BigInt(0), BigInt(0)]] });
     } catch (err) {
       console.error("Remove liquidity error:", err);
       setStepLabel("");
@@ -303,10 +296,7 @@ export default function PoolPage() {
                 </>
               ) : (
                 <>
-                  <div className="dex-tabs" style={{ marginBottom: "20px" }}>
-                    <button className={`dex-tab ${removeMode === "dual" ? "active" : ""}`} onClick={() => setRemoveMode("dual")}>Dual Coin</button>
-                    <button className={`dex-tab ${removeMode === "single" ? "active" : ""}`} onClick={() => setRemoveMode("single")}>Single Coin</button>
-                  </div>
+
 
                   <div style={{ marginBottom: "16px" }}>
                     <div className="dex-flex-between" style={{ marginBottom: "8px", fontSize: "13px", color: "var(--muted)" }}>
@@ -325,12 +315,7 @@ export default function PoolPage() {
                     </div>
                   </div>
 
-                  {removeMode === "single" && (
-                    <div className="dex-tabs" style={{ marginBottom: "20px" }}>
-                      <button className={`dex-tab ${removeCoinIndex === 0 ? "active" : ""}`} onClick={() => setRemoveCoinIndex(0)}>USDC</button>
-                      <button className={`dex-tab ${removeCoinIndex === 1 ? "active" : ""}`} onClick={() => setRemoveCoinIndex(1)}>EURC</button>
-                    </div>
-                  )}
+
 
                   <button
                     className="dex-btn dex-btn-full"

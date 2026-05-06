@@ -1,5 +1,5 @@
 // Contract Addresses (Arc Testnet)
-export const POOL_ADDRESS = "0xE76909C5Fc57ea68BccE959947a1ecA8707657ef" as const;
+export const POOL_ADDRESS = "0x8C5954bE2A8b463895eA9cd0bc2Ea83b5DC7B0d9" as const;
 export const LP_TOKEN_ADDRESS = "0xc349BCA5A206D52c2840f7BaBd4F72ee30C4127f" as const;
 export const RAD_TOKEN_ADDRESS = "0x5d8280453289B1E249852580aCB3Ca40025a49E7" as const;
 export const STAKING_ADDRESS = "0x5dbA375E2fae41F2BBc43756AD2EA2669D0fC878" as const;
