@@ -7,18 +7,57 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@/components/ConnectButton";
 
 const NAV_LINKS = [
-  { href: "/swap", label: "Swap", color: "#2563eb", letter: "S" },
-  { href: "/bridge", label: "Bridge", color: "#7c3aed", letter: "B" },
-  { href: "/pool", label: "Pool", color: "#0891b2", letter: "P" },
-  { href: "/yield", label: "Yield", color: "#059669", letter: "Y" },
-  { href: "/stats", label: "Stats", color: "#d97706", letter: "T" },
+  {
+    href: "/swap",
+    label: "Swap",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M7 16l-4-4 4-4" /><path d="M17 8l4 4-4 4" /><line x1="3" y1="12" x2="21" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    href: "/bridge",
+    label: "Bridge",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 12h16" /><path d="m8 6-6 6 6 6" /><path d="m16 6 6 6-6 6" />
+      </svg>
+    ),
+  },
+  {
+    href: "/pool",
+    label: "Pool",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" />
+      </svg>
+    ),
+  },
+  {
+    href: "/yield",
+    label: "Yield",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v20" /><path d="m17 5-5-3-5 3" /><path d="m17 19-5 3-5-3" /><path d="M2 12h20" />
+      </svg>
+    ),
+  },
+  {
+    href: "/stats",
+    label: "Stats",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" /><path d="m7 16 4-8 4 4 4-8" />
+      </svg>
+    ),
+  },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Escape key to close
   useEffect(() => {
     if (!menuOpen) return;
     function handleEscape(e: KeyboardEvent) {
@@ -28,7 +67,6 @@ export default function Navbar() {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [menuOpen]);
 
-  // Lock body scroll when drawer open
   useEffect(() => {
     if (menuOpen) {
       const prev = document.body.style.overflow;
@@ -40,7 +78,6 @@ export default function Navbar() {
   return (
     <>
       <nav className="dex-nav">
-        {/* Hamburger — left side, mobile only */}
         <button
           type="button"
           className="nav-hamburger"
@@ -76,7 +113,6 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile slide-out drawer */}
       {menuOpen && (
         <div className="nav-drawer-overlay" onClick={() => setMenuOpen(false)}>
           <div className="nav-drawer" onClick={(e) => e.stopPropagation()}>
@@ -105,12 +141,7 @@ export default function Navbar() {
                   className={`nav-drawer-link ${pathname === link.href ? "active" : ""}`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <div
-                    className="nav-drawer-icon-circle"
-                    style={{ background: link.color }}
-                  >
-                    {link.letter}
-                  </div>
+                  <span className="nav-drawer-icon">{link.icon}</span>
                   <span className="nav-drawer-label">{link.label}</span>
                   {pathname === link.href && <span className="nav-drawer-active-dot" />}
                 </Link>
