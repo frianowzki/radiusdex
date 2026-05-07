@@ -7,18 +7,18 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@/components/ConnectButton";
 
 const NAV_LINKS = [
-  { href: "/swap", label: "Swap", icon: "↔" },
-  { href: "/bridge", label: "Bridge", icon: "⇄" },
-  { href: "/pool", label: "Pool", icon: "💧" },
-  { href: "/yield", label: "Yield", icon: "📈" },
-  { href: "/stats", label: "Stats", icon: "📊" },
+  { href: "/swap", label: "Swap", color: "#2563eb", letter: "S" },
+  { href: "/bridge", label: "Bridge", color: "#7c3aed", letter: "B" },
+  { href: "/pool", label: "Pool", color: "#0891b2", letter: "P" },
+  { href: "/yield", label: "Yield", color: "#059669", letter: "Y" },
+  { href: "/stats", label: "Stats", color: "#d97706", letter: "T" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // L7: Escape key to close mobile drawer
+  // Escape key to close
   useEffect(() => {
     if (!menuOpen) return;
     function handleEscape(e: KeyboardEvent) {
@@ -26,6 +26,15 @@ export default function Navbar() {
     }
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
+  }, [menuOpen]);
+
+  // Lock body scroll when drawer open
+  useEffect(() => {
+    if (menuOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
   }, [menuOpen]);
 
   return (
@@ -96,8 +105,13 @@ export default function Navbar() {
                   className={`nav-drawer-link ${pathname === link.href ? "active" : ""}`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <span className="nav-drawer-icon">{link.icon}</span>
-                  {link.label}
+                  <div
+                    className="nav-drawer-icon-circle"
+                    style={{ background: link.color }}
+                  >
+                    {link.letter}
+                  </div>
+                  <span className="nav-drawer-label">{link.label}</span>
                   {pathname === link.href && <span className="nav-drawer-active-dot" />}
                 </Link>
               ))}
