@@ -16,11 +16,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// L9: Viewport must be exported separately in Next.js 14+
+export const viewport = { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false };
+
 export const metadata: Metadata = {
   title: "Radius DEX — Stablecoin Swaps on Arc Network",
   description: "Radius DEX — Decentralized stablecoin exchange on Arc Network",
   icons: { icon: "/icon.svg" },
-  viewport: { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false },
 };
 
 export default function RootLayout({

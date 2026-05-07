@@ -1,8 +1,11 @@
+import { getAddress } from "viem";
+
 // Contract Addresses (Arc Testnet)
 export const POOL_ADDRESS = "0x8C5954bE2A8b463895eA9cd0bc2Ea83b5DC7B0d9" as const;
 export const LP_TOKEN_ADDRESS = "0xc349BCA5A206D52c2840f7BaBd4F72ee30C4127f" as const;
 export const RAD_TOKEN_ADDRESS = "0x196Ee81eC2e565188EC737234a108AcbFEA0d992" as const;
-export const STAKING_ADDRESS = "0xd4dd50eb1fb8b4c3d88e508b1e80194835b5ecf5" as const;
+// L4: Checksummed address (EIP-55)
+export const STAKING_ADDRESS = getAddress("0xd4dd50eb1fb8b4c3d88e508b1e80194835b5ecf5");
 export const USDC_ADDRESS = "0x3600000000000000000000000000000000000000" as const;
 export const EURC_ADDRESS = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a" as const;
 

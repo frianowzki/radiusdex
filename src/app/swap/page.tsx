@@ -82,6 +82,9 @@ export default function SwapPage() {
 
   // Track step for auto-continuation
   const pendingStepRef = useRef<"approve" | "swap" | null>(null);
+  // C2: Ref to capture current swap params for use in useEffect
+  const swapParamsRef = useRef({ fromToken, toToken, parsedAmount, minReceive, fromAmount });
+  swapParamsRef.current = { fromToken, toToken, parsedAmount, minReceive, fromAmount };
 
   // Auto-continue: approval → swap
   useEffect(() => {
@@ -93,20 +96,23 @@ export default function SwapPage() {
       setTxHash(undefined);
       reset();
       // Allowance refetch, then auto-swap
-      setTimeout(async () => {
+      // C3: Wrap setTimeout in useEffect cleanup
+      const timer = setTimeout(async () => {
         try {
+          const { fromToken: ft, toToken: tt, parsedAmount: pa, minReceive: mr } = swapParamsRef.current;
           pendingStepRef.current = "swap";
-          const swapHash = await writeContractAsync({
+          await writeContractAsync({
             address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange",
-            args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount!, minReceive],
+            args: [BigInt(ft.index), BigInt(tt.index), pa!, mr],
           });
-          // swapHash set by hook
         } catch {
           pendingStepRef.current = null;
         }
       }, 2000);
+      return () => clearTimeout(timer);
     } else if (step === "swap") {
-      setTxHistory(prev => [{ hash: txHash, from: fromToken.symbol, to: toToken.symbol, amount: fromAmount, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      const { fromToken: ft, toToken: tt, fromAmount: fa } = swapParamsRef.current;
+      setTxHistory(prev => [{ hash: txHash, from: ft.symbol, to: tt.symbol, amount: fa, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
       setFromAmount("");
       pendingStepRef.current = null;
       setTxHash(undefined);

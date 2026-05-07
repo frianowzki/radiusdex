@@ -18,6 +18,16 @@ export function HistoryIcon({ entries, title }: { entries: HistoryEntry[]; title
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
+  // L7: Escape key to close HistoryIcon panel
+  useEffect(() => {
+    if (!open) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open]);
+
   if (entries.length === 0) return null;
 
   return (
@@ -54,26 +64,40 @@ export function HistoryIcon({ entries, title }: { entries: HistoryEntry[]; title
           >
             <div className="flex justify-between items-center mb-4">
               <h3 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h3>
-              <button onClick={() => setOpen(false)} className="dex-btn-ghost" style={{ padding: 6 }}>
+              {/* L6: aria-label on close button */}
+              <button onClick={() => setOpen(false)} className="dex-btn-ghost" style={{ padding: 6 }} aria-label="Close">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div className="space-y-2">
               {entries.map((entry, i) => (
-                <a
-                  key={i}
-                  href={`https://testnet.arcscan.app/tx/${entry.hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="tx-item"
-                  style={{ textDecoration: "none" }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 500 }}>{entry.label}</span>
-                    <span className="text-xs text-[var(--muted)] block">{entry.time}</span>
+                // M6: Only render <a> link if hash is non-empty
+                entry.hash ? (
+                  <a
+                    key={i}
+                    href={`https://testnet.arcscan.app/tx/${entry.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tx-item"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{entry.label}</span>
+                      <span className="text-xs text-[var(--muted)] block">{entry.time}</span>
+                    </div>
+                    <span className="tx-hash">{entry.hash.slice(0, 8)}…{entry.hash.slice(-6)}</span>
+                  </a>
+                ) : (
+                  <div
+                    key={i}
+                    className="tx-item"
+                  >
+                    <div>
+                      <span style={{ fontWeight: 500 }}>{entry.label}</span>
+                      <span className="text-xs text-[var(--muted)] block">{entry.time}</span>
+                    </div>
                   </div>
-                  <span className="tx-hash">{entry.hash.slice(0, 8)}…{entry.hash.slice(-6)}</span>
-                </a>
+                )
               ))}
             </div>
           </div>

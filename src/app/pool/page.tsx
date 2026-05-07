@@ -106,7 +106,12 @@ export default function PoolPage() {
   const handleRemoveLiquidity = useCallback(async () => {
     if (!address || !lpAmount) return;
     try {
-      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [parseUnits(lpAmount, 18), [BigInt(0), BigInt(0)]] });
+      // M3: Calculate minimum amounts with 1% slippage protection
+      const lpParsed = parseUnits(lpAmount, 18);
+      const lpTotalSupply = (poolData?.[4]?.result as bigint) ?? BigInt(0);
+      const minEurc = lpTotalSupply > BigInt(0) ? (eurcReserve * lpParsed / lpTotalSupply) * BigInt(99) / BigInt(100) : BigInt(0);
+      const minUsdc = lpTotalSupply > BigInt(0) ? (usdcReserve * lpParsed / lpTotalSupply) * BigInt(99) / BigInt(100) : BigInt(0);
+      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "remove_liquidity", args: [lpParsed, [minUsdc, minEurc]] });
       setTxHistory(prev => [{ hash: "", action: "Remove Liquidity", detail: `${lpAmount} LP`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
       setLpAmount("");
       reset();
@@ -114,7 +119,7 @@ export default function PoolPage() {
     } catch {
       // Error already set by useWriteContractCompat
     }
-  }, [address, lpAmount, writeContractAsync, reset, refetchPool]);
+  }, [address, lpAmount, writeContractAsync, reset, refetchPool, poolData, eurcReserve, usdcReserve]);
 
   const getButtonText = () => {
     if (isProcessing) return <><span className="spinner" /> Processing…</>;

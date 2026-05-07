@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState, useEffect, useMemo } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { WagmiProvider, http, type Config, createConfig } from "wagmi";
 import {
   RainbowKitProvider,
@@ -17,6 +17,7 @@ function getConfig(): Config {
   if (cachedConfig) return cachedConfig;
   cachedConfig = getDefaultConfig({
     appName: "Radius DEX",
+    // L10: TODO: Replace placeholder with real WalletConnect projectId for production
     projectId: "radiusdex-placeholder",
     chains: [arcTestnet],
     transports: {
@@ -29,11 +30,12 @@ function getConfig(): Config {
 export function Providers({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const [queryClient] = useState(() => new QueryClient());
 
   if (!mounted) return null;
 
   return (
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={queryClient}>
       <RadiusAuthProvider>
         <WagmiProvider config={getConfig()}>
           <RainbowKitProvider

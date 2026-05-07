@@ -41,6 +41,7 @@ type RadiusAuthContextValue = {
   provider: EIP1193Provider | null;
   privyWallet: ConnectedWallet | null;
   user: RadiusUser | null;
+  wrongChain: boolean;
   login: (method?: SocialLoginMethod) => Promise<void>;
   logout: () => Promise<void>;
   switchChain: (chainId: number) => Promise<void>;
@@ -87,6 +88,8 @@ function RadiusPrivyBridgeProvider({ children }: { children: ReactNode }) {
   const [provider, setProvider] = useState<EIP1193Provider | null>(null);
   const [address, setAddress] = useState<`0x${string}` | undefined>();
   const [chainId, setChainId] = useState<number | undefined>();
+  // M7: Track wrong chain state instead of force-logging-out
+  const [wrongChain, setWrongChain] = useState(false);
   const wallet = useMemo(() => pickWallet(wallets), [wallets]);
 
   const refreshWallet = useCallback(async () => {
@@ -138,17 +141,19 @@ function RadiusPrivyBridgeProvider({ children }: { children: ReactNode }) {
     setProvider(null);
     setAddress(undefined);
     setChainId(undefined);
+    setWrongChain(false);
   }, [privyLogout]);
 
-  // Bug 11: Auto-disconnect embedded wallet if chain is not Arc Testnet
+  // M7: Set wrongChain flag instead of auto-disconnecting
   useEffect(() => {
     if (!authenticated || !wallet) return;
     const isEmbedded = Boolean(getEmbeddedConnectedWallet([wallet]));
     if (isEmbedded && chainId !== undefined && chainId !== 5042002) {
-      console.warn("Embedded wallet switched to non-Arc chain, logging out.");
-      void logout();
+      setWrongChain(true);
+    } else {
+      setWrongChain(false);
     }
-  }, [authenticated, wallet, chainId, logout]);
+  }, [authenticated, wallet, chainId]);
 
   const signMessage = useCallback(
     async (message: string) => {
@@ -179,12 +184,13 @@ function RadiusPrivyBridgeProvider({ children }: { children: ReactNode }) {
       provider,
       privyWallet: wallet,
       user: normalizeUser(user),
+      wrongChain,
       login,
       logout,
       switchChain,
       signMessage,
     }),
-    [address, authenticated, chainId, login, logout, provider, ready, switchChain, signMessage, user, wallet]
+    [address, authenticated, chainId, login, logout, provider, ready, switchChain, signMessage, user, wallet, wrongChain]
   );
 
   return <RadiusAuthContext.Provider value={value}>{children}</RadiusAuthContext.Provider>;
@@ -200,6 +206,7 @@ export function RadiusAuthProvider({ children }: { children: ReactNode }) {
           provider: null,
           privyWallet: null,
           user: null,
+          wrongChain: false,
           login: async () => { throw new Error("Privy is not configured"); },
           logout: async () => undefined,
           switchChain: async () => { throw new Error("Privy is not configured"); },
@@ -219,7 +226,8 @@ export function RadiusAuthProvider({ children }: { children: ReactNode }) {
         appearance: {
           theme: "light",
           accentColor: "#3b82f6",
-          logo: "https://radiusdex.vercel.app/icon-512.png",
+          // M5: Use dynamic origin instead of hardcoded Vercel URL
+          logo: typeof window !== "undefined" ? window.location.origin + "/icon-512.png" : "/icon-512.png",
           landingHeader: "Continue to Radius DEX",
           loginMessage: "Swap stablecoins on Arc Testnet with near-zero slippage.",
           showWalletLoginFirst: false,

@@ -574,25 +574,6 @@ body {
 
 .glass-select:focus { border-color: var(--brand); }
 
-.glass-modal-overlay {
-  position: fixed; inset: 0; z-index: 100;
-  background: rgba(15, 23, 42, 0.3);
-  backdrop-filter: blur(4px);
-  display: flex; align-items: center; justify-content: center;
-}
-
-.glass-modal {
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  box-shadow: var(--glass-shadow-hover);
-  padding: 24px;
-  max-width: 480px; width: 90%;
-  max-height: 80vh; overflow-y: auto;
-  animation: dropdownIn 0.2s ease-out;
-}
-
 /* ===== DISCLAIMER (GLASS) ===== */
 
 .disclaimer-glass {
@@ -601,12 +582,6 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 16px; padding: 16px 24px;
   box-shadow: var(--glass-shadow);
-}
-
-/* ===== ANIMATIONS ===== */
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ===== SCROLLBAR ===== */

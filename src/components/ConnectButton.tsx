@@ -19,27 +19,44 @@ export function ConnectButton() {
     login,
     logout,
     initialized,
+    wrongChain,
+    switchChain: switchAuthChain,
   } = useRadiusAuth();
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // M1: Track if we've already prompted for chain switch
+  const hasPromptedRef = useRef(false);
 
   const connected = wagmiConnected || authenticated;
   const address = wagmiAddr ?? authAddr;
   const activeChainId = wagmiConnected ? wagmiChainId : authChainId;
   const isOnArc = activeChainId === ARC_CHAIN_ID;
 
-  // Bug 1: When connected, check chain — prompt to switch if not on Arc Testnet
+  // M1: Only auto-switch once on initial connect
   useEffect(() => {
-    if (!connected || !wagmiConnected) return;
+    if (!connected || !wagmiConnected || hasPromptedRef.current) return;
     if (wagmiChainId !== ARC_CHAIN_ID) {
-      // Auto-prompt switch to Arc for wagmi wallets
-      switchChainAsync({ chainId: ARC_CHAIN_ID }).catch(() => {
-        // User rejected or error — show switch button instead
-      });
+      hasPromptedRef.current = true;
+      switchChainAsync({ chainId: ARC_CHAIN_ID }).catch(() => {});
     }
-  }, [connected, wagmiConnected, wagmiChainId, switchChainAsync]);
+  }, [connected, wagmiConnected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset prompt ref on disconnect
+  useEffect(() => {
+    if (!connected) hasPromptedRef.current = false;
+  }, [connected]);
+
+  // L7: Escape key to close dropdown
+  useEffect(() => {
+    if (!open) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -47,7 +64,6 @@ export function ConnectButton() {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
-    // Bug 2: Also handle touch events for mobile
     function onTouchOutside(e: TouchEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
@@ -73,17 +89,24 @@ export function ConnectButton() {
   async function handleSwitchToArc() {
     if (wagmiConnected) {
       await switchChainAsync({ chainId: ARC_CHAIN_ID });
+    } else if (authenticated && switchAuthChain) {
+      await switchAuthChain(ARC_CHAIN_ID);
     }
   }
 
-  // Bug 2: Unified handler for both click and touch
   function handleDisconnect() {
     logout();
     setOpen(false);
   }
 
+  // M9: Wrap clipboard in try/catch, check address
   function handleCopyAddress() {
-    navigator.clipboard.writeText(address!);
+    if (!address) return;
+    try {
+      navigator.clipboard.writeText(address);
+    } catch {
+      // Clipboard not available
+    }
     setOpen(false);
   }
 
@@ -93,7 +116,6 @@ export function ConnectButton() {
       <button
         type="button"
         onClick={handleConnect}
-        onTouchEnd={(e) => { e.preventDefault(); handleConnect(); }}
         disabled={!initialized || busy}
         className="connect-btn"
       >
@@ -114,15 +136,15 @@ export function ConnectButton() {
   // Connected state — address badge with dropdown
   return (
     <div className="connect-wrapper" ref={ref}>
-      {!isOnArc && (
-        <button type="button" onClick={handleSwitchToArc} onTouchEnd={(e) => { e.preventDefault(); handleSwitchToArc(); }} className="connect-switch-btn">
+      {(!isOnArc || wrongChain) && (
+        <button type="button" onClick={handleSwitchToArc} className="connect-switch-btn">
           Switch to Arc
         </button>
       )}
-      <button type="button" onClick={() => setOpen(!open)} onTouchEnd={(e) => { e.preventDefault(); setOpen(!open); }} className="connect-badge">
+      <button type="button" onClick={() => setOpen(!open)} className="connect-badge">
         <span className="connect-dot" />
         <span className="connect-addr">
-          {user?.name || formatAddress(address!)}
+          {user?.name || (address ? formatAddress(address) : "")}
         </span>
         <svg
           width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -142,14 +164,13 @@ export function ConnectButton() {
                 {user?.name || "Connected"}
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)", fontFamily: "var(--font-geist-mono, monospace)" }}>
-                {formatAddress(address!)}
+                {address ? formatAddress(address) : ""}
               </div>
             </div>
           </div>
           <button
             type="button"
             onClick={handleCopyAddress}
-            onTouchEnd={(e) => { e.preventDefault(); handleCopyAddress(); }}
             className="connect-dropdown-item"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -173,7 +194,6 @@ export function ConnectButton() {
           <button
             type="button"
             onClick={handleDisconnect}
-            onTouchEnd={(e) => { e.preventDefault(); handleDisconnect(); }}
             className="connect-dropdown-item connect-dropdown-logout"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

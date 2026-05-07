@@ -28,11 +28,3 @@ export const EURC: Token = {
 };
 
 export const TOKENS: Token[] = [USDC, EURC];
-
-export function getTokenByIndex(index: number): Token | undefined {
-  return TOKENS.find((t) => t.index === index);
-}
-
-export function getTokenBySymbol(symbol: string): Token | undefined {
-  return TOKENS.find((t) => t.symbol === symbol);
-}

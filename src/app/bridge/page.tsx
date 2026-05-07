@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAccount, useReadContracts, useChainId, useSwitchChain } from "wagmi";
-import { parseUnits, isAddress } from "viem";
+import { parseUnits, formatUnits, isAddress } from "viem";
 import type { EIP1193Provider } from "viem";
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
@@ -13,12 +13,47 @@ import {
   CHAIN_USDC_ADDRESSES,
   type CrosschainChain,
 } from "@/config/crosschain";
-import { arcTestnet } from "@/config/wagmi";
 import { useRadiusAuth } from "@/lib/auth";
 
 type BridgeStatus = "idle" | "estimating" | "approving" | "burning" | "attesting" | "minting" | "success" | "error";
 
 const ALL_CHAINS = Object.keys(CHAIN_METADATA) as CrosschainChain[];
+
+// L5: Extract ChainPicker outside BridgePage to avoid re-creation every render
+function ChainPicker({ open, onClose, onSelect, exclude }: { open: boolean; onClose: () => void; onSelect: (c: CrosschainChain) => void; exclude?: CrosschainChain }) {
+  // L7: Escape key handling for ChainPicker modal
+  useEffect(() => {
+    if (!open) return;
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="glass-modal-overlay" onClick={onClose}>
+      <div className="glass-modal" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Select chain</h3>
+          <button onClick={onClose} className="modal-close-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+        {ALL_CHAINS.filter((c) => c !== exclude).map((chain) => (
+          <button key={chain} onClick={() => { onSelect(chain); onClose(); }} className="chain-picker-row" style={{ marginBottom: 6 }}>
+            <ChainLogo chainKey={chain} size={32} />
+            <div>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[chain].label}</span>
+              <span className="text-xs text-[var(--muted)] block">Chain ID: {CHAIN_METADATA[chain].chainId}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function BridgePage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -85,16 +120,17 @@ export default function BridgePage() {
   const usdcBalance = balanceData?.[0]?.result as bigint | undefined;
   const requestedRaw = validAmount ? parseUnits(amount, 6) : BigInt(0);
   const hasEnough = typeof usdcBalance === "bigint" ? usdcBalance >= requestedRaw : false;
-  const formattedBalance = usdcBalance !== undefined ? (Number(usdcBalance) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
+  // M2: Use formatUnits instead of Number division for precision
+  const formattedBalance = usdcBalance !== undefined ? Number(formatUnits(usdcBalance, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
   const canBridge = isConnected && isOnSourceChain && validAmount && validRecipient && hasEnough && fromChain !== toChain && status !== "estimating" && status !== "approving" && status !== "burning" && status !== "minting";
 
-  function switchDirection() {
+  const switchDirection = useCallback(() => {
     const tmp = fromChain;
     setFromChain(toChain);
     setToChain(tmp);
     setError("");
     setTxHash("");
-  }
+  }, [fromChain, toChain]);
 
   function getActiveProvider(): EIP1193Provider | null {
     if (authProvider) return authProvider as EIP1193Provider;
@@ -172,31 +208,6 @@ export default function BridgePage() {
       setError(msg.includes("User rejected") ? "Transaction rejected." : msg.slice(0, 220));
       setProgressLabel("");
     }
-  }
-
-  function ChainPicker({ open, onClose, onSelect, exclude }: { open: boolean; onClose: () => void; onSelect: (c: CrosschainChain) => void; exclude?: CrosschainChain }) {
-    if (!open) return null;
-    return (
-      <div className="glass-modal-overlay" onClick={onClose}>
-        <div className="glass-modal" onClick={(e) => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Select chain</h3>
-            <button onClick={onClose} className="modal-close-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-            </button>
-          </div>
-          {ALL_CHAINS.filter((c) => c !== exclude).map((chain) => (
-            <button key={chain} onClick={() => { onSelect(chain); onClose(); }} className="chain-picker-row" style={{ marginBottom: 6 }}>
-              <ChainLogo chainKey={chain} size={32} />
-              <div>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>{CHAIN_METADATA[chain].label}</span>
-                <span className="text-xs text-[var(--muted)] block">Chain ID: {CHAIN_METADATA[chain].chainId}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
   }
 
   return (

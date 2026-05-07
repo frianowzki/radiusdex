@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAccount, useWriteContract as useWagmiWrite, useWaitForTransactionReceipt } from "wagmi";
 import type { Abi, Address } from "viem";
 import { encodeFunctionData } from "viem";
@@ -26,14 +26,23 @@ export function useWriteContractCompat() {
   const { isConnected: wagmiConnected } = useAccount();
   const { authenticated, address: privyAddress } = useRadiusAuth();
   const wagmiWrite = useWagmiWrite();
+  // C4: Refs to resolve/reject the promise from onSuccess/onError callbacks
+  const privyResolveRef = useRef<((hash: `0x${string}`) => void) | null>(null);
+  const privyRejectRef = useRef<((err: unknown) => void) | null>(null);
   const { sendTransaction: privySendTransaction } = usePrivySendTx({
     onSuccess: ({ hash }) => {
       setTxHash(hash as `0x${string}`);
       setIsPending(false);
+      privyResolveRef.current?.(hash as `0x${string}`);
+      privyResolveRef.current = null;
+      privyRejectRef.current = null;
     },
     onError: (err) => {
       setError(friendlyError(err));
       setIsPending(false);
+      privyRejectRef.current?.(err);
+      privyResolveRef.current = null;
+      privyRejectRef.current = null;
     },
   });
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
@@ -53,21 +62,22 @@ export function useWriteContractCompat() {
           setIsPending(false);
           return hash;
         }
-
         if (authenticated && privyAddress) {
           const data = encodeFunctionData({
             abi: args.abi,
             functionName: args.functionName,
             args: args.args as readonly unknown[] | undefined,
           });
-          // Privy's sendTransaction handles gas estimation internally
-          privySendTransaction({
-            to: args.address,
-            data,
-            chainId: 5042002,
+          // C4: Wrap in a promise so caller can await the hash
+          return new Promise<`0x${string}`>((resolve, reject) => {
+            privyResolveRef.current = resolve;
+            privyRejectRef.current = reject;
+            privySendTransaction({
+              to: args.address,
+              data,
+              chainId: 5042002,
+            });
           });
-          // Hash will be set by onSuccess callback
-          return undefined as unknown as `0x${string}`;
         }
 
         throw new Error("No wallet connected. Please connect your wallet first.");

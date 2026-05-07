@@ -13,6 +13,7 @@ import {
 import Navbar from "@/components/Navbar";
 import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
+import { calcAPR } from "@/lib/format";
 
 export default function YieldPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -52,10 +53,7 @@ export default function YieldPage() {
 
   const isProcessing = isPending || isConfirming;
 
-  const secondsPerYear = BigInt(365 * 24 * 3600);
-  const apr = totalStaked > BigInt(0)
-    ? Number((rewardRate * secondsPerYear * BigInt(10000)) / totalStaked) / 100
-    : 0;
+  const apr = calcAPR(rewardRate, totalStaked);
 
   const safeParse = (() => { try { return parseUnits(amount || "0", 18); } catch { return BigInt(0); } })();
   const needsApproval = action === "stake" && !postApprove && safeParse > BigInt(0) && lpAllowance < safeParse;

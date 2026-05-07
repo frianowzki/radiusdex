@@ -12,6 +12,7 @@ import {
   RAD_TOKEN_ADDRESS,
 } from "@/config/contracts";
 import { USDC, EURC } from "@/config/tokens";
+import { calcAPR } from "@/lib/format";
 import { TokenLogo } from "@/components/TokenLogo";
 import Navbar from "@/components/Navbar";
 
@@ -56,9 +57,7 @@ export default function StatsPage() {
   const eurcPercent = tvl > 0 ? (eurcReserveNum / tvl) * 100 : 0;
 
   // APR calculation
-  const secondsPerYear = 365 * 24 * 3600;
-  const radPerYear = Number(formatUnits(rewardRate, 18)) * secondsPerYear;
-  const apr = totalStakedNum > 0 ? (radPerYear / totalStakedNum) * 100 : 0;
+  const apr = calcAPR(rewardRate, totalStaked);
 
   return (
     <>
