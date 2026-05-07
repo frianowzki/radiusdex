@@ -7,11 +7,11 @@ import { usePathname } from "next/navigation";
 import { ConnectButton } from "@/components/ConnectButton";
 
 const NAV_LINKS = [
-  { href: "/swap", label: "SWAP" },
-  { href: "/bridge", label: "BRIDGE" },
-  { href: "/pool", label: "POOL" },
-  { href: "/yield", label: "YIELD" },
-  { href: "/stats", label: "STATS" },
+  { href: "/swap", label: "Swap", icon: "↔" },
+  { href: "/bridge", label: "Bridge", icon: "⇄" },
+  { href: "/pool", label: "Pool", icon: "💧" },
+  { href: "/yield", label: "Yield", icon: "📈" },
+  { href: "/stats", label: "Stats", icon: "📊" },
 ];
 
 export default function Navbar() {
@@ -21,6 +21,20 @@ export default function Navbar() {
   return (
     <>
       <nav className="dex-nav">
+        {/* Hamburger — left side, mobile only */}
+        <button
+          type="button"
+          className="nav-hamburger"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open menu"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+
         <Link href="/" className="dex-nav-logo">
           <Image src="/icon-192.png" alt="Radius" width={32} height={32} className="rounded-full" />
           <span>RADIUS DEX</span>
@@ -40,18 +54,6 @@ export default function Navbar() {
 
         <div className="dex-nav-right">
           <ConnectButton />
-          <button
-            type="button"
-            className="nav-hamburger"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
         </div>
       </nav>
 
@@ -60,7 +62,10 @@ export default function Navbar() {
         <div className="nav-drawer-overlay" onClick={() => setMenuOpen(false)}>
           <div className="nav-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="nav-drawer-header">
-              <span className="dex-nav-logo" style={{ fontSize: 16 }}>RADIUS DEX</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <Image src="/icon-192.png" alt="Radius" width={28} height={28} className="rounded-full" />
+                <span style={{ fontWeight: 700, fontSize: 15 }}>RADIUS DEX</span>
+              </div>
               <button
                 type="button"
                 onClick={() => setMenuOpen(false)}
@@ -81,9 +86,14 @@ export default function Navbar() {
                   className={`nav-drawer-link ${pathname === link.href ? "active" : ""}`}
                   onClick={() => setMenuOpen(false)}
                 >
+                  <span className="nav-drawer-icon">{link.icon}</span>
                   {link.label}
+                  {pathname === link.href && <span className="nav-drawer-active-dot" />}
                 </Link>
               ))}
+            </div>
+            <div className="nav-drawer-footer">
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>Arc Testnet • v1.0</span>
             </div>
           </div>
         </div>
