@@ -6,7 +6,7 @@ import {
   useReadContract,
   useReadContracts,
 } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits } from "viem";
 import {
   POOL_ADDRESS,
   POOL_ABI,
@@ -20,6 +20,7 @@ import { HistoryIcon } from "@/components/HistoryIcon";
 import { TrustBar } from "@/components/TrustBar";
 import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
+import { parseTokenAmount } from "@/lib/amount";
 
 export default function SwapPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -66,7 +67,7 @@ export default function SwapPage() {
   const feePercent = Number(formatUnits(poolFee, 10));
 
   // Quote
-  const parsedAmount = fromAmount && !isNaN(Number(fromAmount)) ? parseUnits(fromAmount, fromToken.decimals) : undefined;
+  const parsedAmount = parseTokenAmount(fromAmount, fromToken.decimals);
   const { data: quoteResult } = useReadContract({
     address: POOL_ADDRESS,
     abi: POOL_ABI,
@@ -80,11 +81,15 @@ export default function SwapPage() {
   const needsApproval = allowance !== undefined && parsedAmount !== undefined && allowance < parsedAmount;
   const isProcessing = isWritePending || isConfirming;
 
-  // Track step for auto-continuation
+  // Track step and freeze the exact user intent used for approve → swap.
   const pendingStepRef = useRef<"approve" | "swap" | null>(null);
-  // C2: Ref to capture current swap params for use in useEffect
-  const swapParamsRef = useRef({ fromToken, toToken, parsedAmount, minReceive, fromAmount });
-  swapParamsRef.current = { fromToken, toToken, parsedAmount, minReceive, fromAmount };
+  const pendingSwapIntentRef = useRef<{
+    fromToken: Token;
+    toToken: Token;
+    parsedAmount: bigint;
+    minReceive: bigint;
+    fromAmount: string;
+  } | null>(null);
 
   // Auto-continue: approval → swap
   useEffect(() => {
@@ -99,11 +104,12 @@ export default function SwapPage() {
       // C3: Wrap setTimeout in useEffect cleanup
       const timer = setTimeout(async () => {
         try {
-          const { fromToken: ft, toToken: tt, parsedAmount: pa, minReceive: mr } = swapParamsRef.current;
+          const intent = pendingSwapIntentRef.current;
+          if (!intent) throw new Error("Missing swap intent");
           pendingStepRef.current = "swap";
           await writeContractAsync({
             address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange",
-            args: [BigInt(ft.index), BigInt(tt.index), pa!, mr],
+            args: [BigInt(intent.fromToken.index), BigInt(intent.toToken.index), intent.parsedAmount, intent.minReceive],
           });
         } catch {
           pendingStepRef.current = null;
@@ -111,10 +117,13 @@ export default function SwapPage() {
       }, 2000);
       return () => clearTimeout(timer);
     } else if (step === "swap") {
-      const { fromToken: ft, toToken: tt, fromAmount: fa } = swapParamsRef.current;
-      setTxHistory(prev => [{ hash: txHash, from: ft.symbol, to: tt.symbol, amount: fa, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      const intent = pendingSwapIntentRef.current;
+      if (intent) {
+        setTxHistory(prev => [{ hash: txHash, from: intent.fromToken.symbol, to: intent.toToken.symbol, amount: intent.fromAmount, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
+      }
       setFromAmount("");
       pendingStepRef.current = null;
+      pendingSwapIntentRef.current = null;
       setTxHash(undefined);
       reset();
     }
@@ -122,18 +131,21 @@ export default function SwapPage() {
 
   const handleSwap = useCallback(async () => {
     if (!parsedAmount || !address || parsedAmount <= BigInt(0)) return;
+    const intent = { fromToken, toToken, parsedAmount, minReceive, fromAmount };
+    pendingSwapIntentRef.current = intent;
     try {
       if (needsApproval) {
         pendingStepRef.current = "approve";
-        await writeContractAsync({ address: fromToken.address, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, parsedAmount] });
+        await writeContractAsync({ address: intent.fromToken.address, abi: ERC20_ABI, functionName: "approve", args: [POOL_ADDRESS, intent.parsedAmount] });
         return;
       }
       pendingStepRef.current = "swap";
-      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange", args: [BigInt(fromToken.index), BigInt(toToken.index), parsedAmount, minReceive] });
+      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "exchange", args: [BigInt(intent.fromToken.index), BigInt(intent.toToken.index), intent.parsedAmount, intent.minReceive] });
     } catch {
       pendingStepRef.current = null;
+      pendingSwapIntentRef.current = null;
     }
-  }, [parsedAmount, address, needsApproval, fromToken, toToken, minReceive, writeContractAsync]);
+  }, [parsedAmount, address, needsApproval, fromToken, toToken, minReceive, fromAmount, writeContractAsync]);
 
   const handleSwitchTokens = () => {
     const tmp = fromToken;

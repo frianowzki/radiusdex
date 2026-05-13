@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./RadiusLPToken.sol";
 
@@ -12,7 +13,7 @@ import "./RadiusLPToken.sol";
  *         Curve-style invariant for pegged stablecoins (both 6 decimals).
  *         All D/y math uses 18-decimal-scaled balances for LP compatibility.
  */
-contract RadiusPool is ReentrancyGuard {
+contract RadiusPool is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable token0; // USDC (6 decimals)
@@ -29,7 +30,7 @@ contract RadiusPool is ReentrancyGuard {
     event LiquidityAdded(address indexed provider, uint256[2] amounts, uint256 lpMinted);
     event LiquidityRemoved(address indexed provider, uint256[2] amounts, uint256 lpBurned);
 
-    constructor(address _token0, address _token1, address _lpToken) {
+    constructor(address _token0, address _token1, address _lpToken) Ownable(msg.sender) {
         require(_token0 != address(0) && _token1 != address(0), "zero token");
         require(_lpToken != address(0), "zero LP");
         token0 = IERC20(_token0);
@@ -121,6 +122,8 @@ contract RadiusPool is ReentrancyGuard {
     // ==================== VIEW ====================
 
     function get_dy(uint256 i, uint256 j, uint256 dx) external view returns (uint256) {
+        require(i < 2 && j < 2 && i != j, "invalid indices");
+        require(dx > 0, "zero amount");
         uint256[2] memory xp = _scaledBalances();
         uint256 x = xp[i] + dx * SCALE;
         uint256 y = get_y(i, j, x, xp);
@@ -138,10 +141,13 @@ contract RadiusPool is ReentrancyGuard {
         IERC20 inputToken = i == 0 ? token0 : token1;
         IERC20 outputToken = j == 0 ? token0 : token1;
 
-        inputToken.safeTransferFrom(msg.sender, address(this), dx);
-
         uint256[2] memory xp = _scaledBalances();
-        uint256 x = xp[i] + dx * SCALE;
+        uint256 inputBalanceBefore = balances(i);
+        inputToken.safeTransferFrom(msg.sender, address(this), dx);
+        uint256 actualDx = balances(i) - inputBalanceBefore;
+        require(actualDx > 0, "zero received");
+
+        uint256 x = xp[i] + actualDx * SCALE;
         uint256 y = get_y(i, j, x, xp);
         uint256 dyScaled = xp[j] - y - 1;
         uint256 feeAmount = dyScaled * fee / FEE_DENOMINATOR;
@@ -150,7 +156,7 @@ contract RadiusPool is ReentrancyGuard {
         require(dy >= minDy, "slippage exceeded");
 
         outputToken.safeTransfer(msg.sender, dy);
-        emit TokenSwapped(msg.sender, i, j, dx, dy);
+        emit TokenSwapped(msg.sender, i, j, actualDx, dy);
     }
 
     // ==================== LIQUIDITY ====================
@@ -165,6 +171,10 @@ contract RadiusPool is ReentrancyGuard {
         if (amounts[0] > 0) token0.safeTransferFrom(msg.sender, address(this), amounts[0]);
         if (amounts[1] > 0) token1.safeTransferFrom(msg.sender, address(this), amounts[1]);
 
+        uint256 received0 = balances(0) - oldBalances[0];
+        uint256 received1 = balances(1) - oldBalances[1];
+        require(received0 > 0 || received1 > 0, "zero received");
+
         // Scale to 18 decimals for D math
         uint256[2] memory oldScaled;
         oldScaled[0] = oldBalances[0] * SCALE;
@@ -175,6 +185,7 @@ contract RadiusPool is ReentrancyGuard {
         newScaled[1] = balances(1) * SCALE;
 
         uint256 oldD = (oldScaled[0] > 0 || oldScaled[1] > 0) ? getD(oldScaled, A) : 0;
+        require(oldD > 0 || (newScaled[0] > 0 && newScaled[1] > 0), "initial deposit requires both tokens");
         uint256 newD = getD(newScaled, A);
 
         if (oldD == 0) {
@@ -218,6 +229,8 @@ contract RadiusPool is ReentrancyGuard {
         uint256[2] memory xp = _scaledBalances();
         uint256 d0 = getD(xp, A);
         uint256 totalLpSupply = lpToken.totalSupply();
+        require(totalLpSupply > 0, "no liquidity");
+        require(burnAmount <= totalLpSupply, "burn exceeds supply");
 
         uint256 d1 = d0 * (totalLpSupply - burnAmount) / totalLpSupply;
         uint256 receivedScaled = (xp[i] - (xp[i] * d1 / d0)) - 1;
@@ -238,6 +251,7 @@ contract RadiusPool is ReentrancyGuard {
         uint256 d0 = getD(xp, A);
         uint256 totalLpSupply = lpToken.totalSupply();
         if (totalLpSupply == 0) return 0;
+        require(burnAmount <= totalLpSupply, "burn exceeds supply");
 
         uint256 d1 = d0 * (totalLpSupply - burnAmount) / totalLpSupply;
         uint256 receivedScaled = (xp[i] - (xp[i] * d1 / d0)) - 1;
@@ -247,7 +261,7 @@ contract RadiusPool is ReentrancyGuard {
 
     // ==================== ADMIN ====================
 
-    function setFee(uint256 _fee) external {
+    function setFee(uint256 _fee) external onlyOwner {
         require(_fee <= 1000, "fee too high");
         fee = _fee;
     }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAccount, useReadContracts, useChainId, useSwitchChain } from "wagmi";
-import { parseUnits, formatUnits, isAddress } from "viem";
+import { formatUnits, isAddress } from "viem";
 import type { EIP1193Provider } from "viem";
 import Navbar from "@/components/Navbar";
 import { HistoryIcon } from "@/components/HistoryIcon";
@@ -14,6 +14,7 @@ import {
   type CrosschainChain,
 } from "@/config/crosschain";
 import { useRadiusAuth } from "@/lib/auth";
+import { parseTokenAmount } from "@/lib/amount";
 
 type BridgeStatus = "idle" | "estimating" | "approving" | "burning" | "attesting" | "minting" | "success" | "error";
 
@@ -81,7 +82,8 @@ export default function BridgePage() {
   const sourceMeta = CHAIN_METADATA[fromChain];
   const destMeta = CHAIN_METADATA[toChain];
   const isOnSourceChain = activeChainId === sourceMeta.chainId;
-  const validAmount = Number(amount) > 0 && Number.isFinite(Number(amount));
+  const requestedRaw = parseTokenAmount(amount, 6);
+  const validAmount = requestedRaw !== undefined && requestedRaw > BigInt(0);
   const effectiveRecipient = sendToSelf ? (address ?? "") : recipient;
   const validRecipient = !!effectiveRecipient && isAddress(effectiveRecipient);
   const sourceUsdc = CHAIN_USDC_ADDRESSES[fromChain] as `0x${string}`;
@@ -118,11 +120,10 @@ export default function BridgePage() {
   });
 
   const usdcBalance = balanceData?.[0]?.result as bigint | undefined;
-  const requestedRaw = validAmount ? parseUnits(amount, 6) : BigInt(0);
-  const hasEnough = typeof usdcBalance === "bigint" ? usdcBalance >= requestedRaw : false;
+  const hasEnough = typeof usdcBalance === "bigint" && requestedRaw !== undefined ? usdcBalance >= requestedRaw : false;
   // M2: Use formatUnits instead of Number division for precision
   const formattedBalance = usdcBalance !== undefined ? Number(formatUnits(usdcBalance, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—";
-  const canBridge = isConnected && isOnSourceChain && validAmount && validRecipient && hasEnough && fromChain !== toChain && status !== "estimating" && status !== "approving" && status !== "burning" && status !== "minting";
+  const canBridge = isConnected && isOnSourceChain && validAmount && validRecipient && hasEnough && fromChain !== toChain && status !== "estimating" && status !== "approving" && status !== "burning" && status !== "attesting" && status !== "minting";
 
   const switchDirection = useCallback(() => {
     const tmp = fromChain;
@@ -135,6 +136,23 @@ export default function BridgePage() {
   function getActiveProvider(): EIP1193Provider | null {
     if (authProvider) return authProvider as EIP1193Provider;
     return (globalThis as typeof globalThis & { ethereum?: EIP1193Provider }).ethereum ?? null;
+  }
+
+  function getBridgeProvider(provider: EIP1193Provider): EIP1193Provider {
+    if (!isEmbeddedWallet || !address) return provider;
+
+    // Circle's viem adapter calls eth_requestAccounts during lazy setup. Privy
+    // embedded/social wallets are already connected, and that extra request can
+    // leave the Privy confirmation UI pending forever. Return the authenticated
+    // embedded wallet address directly and forward every other RPC call.
+    return {
+      request: async (args) => {
+        if (args.method === "eth_requestAccounts" || args.method === "eth_accounts") {
+          return [address];
+        }
+        return provider.request(args as Parameters<EIP1193Provider["request"]>[0]);
+      },
+    } as EIP1193Provider;
   }
 
   async function switchToSource() {
@@ -161,11 +179,31 @@ export default function BridgePage() {
 
       const { AppKit } = await import("@circle-fin/app-kit");
       const { createViemAdapterFromProvider } = await import("@circle-fin/adapter-viem-v2");
-      const adapter = await createViemAdapterFromProvider({ provider });
+      const adapter = await createViemAdapterFromProvider({ provider: getBridgeProvider(provider) });
       const kit = new AppKit();
 
-      const kitKey = process.env.NEXT_PUBLIC_CIRCLE_KIT_KEY?.trim();
-      if (!kitKey) throw new Error("Circle Kit key not configured.");
+      kit.on("bridge.approve", (payload) => {
+        const hash = (payload.values as { txHash?: string }).txHash;
+        if (hash) setTxHash(hash);
+        setStatus("approving");
+        setProgressLabel("Approval confirmed. Preparing burn…");
+      });
+      kit.on("bridge.burn", (payload) => {
+        const hash = (payload.values as { txHash?: string }).txHash;
+        if (hash) setTxHash(hash);
+        setStatus("attesting");
+        setProgressLabel("USDC burned. Waiting for Circle attestation…");
+      });
+      kit.on("bridge.fetchAttestation", () => {
+        setStatus("attesting");
+        setProgressLabel("Circle attestation received. Forwarding mint…");
+      });
+      kit.on("bridge.mint", (payload) => {
+        const hash = (payload.values as { txHash?: string }).txHash;
+        if (hash) setTxHash(hash);
+        setStatus("minting");
+        setProgressLabel("Mint submitted on destination chain…");
+      });
 
       const destination = useForwarder
         ? { chain: toChain, recipientAddress: effectiveRecipient, useForwarder: true as const }

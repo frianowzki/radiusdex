@@ -5,7 +5,7 @@ import {
   useAccount,
   useReadContracts,
 } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits } from "viem";
 import {
   POOL_ADDRESS,
   POOL_ABI,
@@ -18,6 +18,7 @@ import { TokenLogo } from "@/components/TokenLogo";
 import Navbar from "@/components/Navbar";
 import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
+import { parseTokenAmount } from "@/lib/amount";
 
 type PoolTab = "add" | "remove";
 
@@ -71,11 +72,24 @@ export default function PoolPage() {
     : 0;
 
   const isProcessing = isPending || isConfirming;
+  const usdcParsedAmount = parseTokenAmount(usdcAmount, 6);
+  const eurcParsedAmount = parseTokenAmount(eurcAmount, 6);
+  const lpParsedAmount = parseTokenAmount(lpAmount, 18);
+  const canAddLiquidity = Boolean(isConnected && usdcParsedAmount && eurcParsedAmount && usdcParsedAmount > BigInt(0) && eurcParsedAmount > BigInt(0) && !isProcessing);
+  const canRemoveLiquidity = Boolean(isConnected && lpParsedAmount && lpParsedAmount > BigInt(0) && lpParsedAmount <= lpBalance && !isProcessing);
+
+  const calcMinMint = useCallback((usdcParsed: bigint, eurcParsed: bigint): bigint => {
+    if (totalLPSupply === BigInt(0)) return ((usdcParsed + eurcParsed) * BigInt(1_000_000_000_000) * BigInt(99)) / BigInt(100);
+    if (usdcReserve === BigInt(0) || eurcReserve === BigInt(0)) return BigInt(0);
+    const byUsdc = (usdcParsed * totalLPSupply) / usdcReserve;
+    const byEurc = (eurcParsed * totalLPSupply) / eurcReserve;
+    return ((byUsdc < byEurc ? byUsdc : byEurc) * BigInt(99)) / BigInt(100);
+  }, [totalLPSupply, usdcReserve, eurcReserve]);
 
   const handleAddLiquidity = useCallback(async () => {
-    if (!address || !usdcAmount || !eurcAmount) return;
-    const usdcParsed = parseUnits(usdcAmount, 6);
-    const eurcParsed = parseUnits(eurcAmount, 6);
+    if (!address || !usdcParsedAmount || !eurcParsedAmount || usdcParsedAmount <= BigInt(0) || eurcParsedAmount <= BigInt(0)) return;
+    const usdcParsed = usdcParsedAmount;
+    const eurcParsed = eurcParsedAmount;
 
     try {
       if (approveStep === "none" && usdcAllowance < usdcParsed) {
@@ -92,7 +106,7 @@ export default function PoolPage() {
         refetchPool();
         return;
       }
-      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], BigInt(0)] });
+      await writeContractAsync({ address: POOL_ADDRESS, abi: POOL_ABI, functionName: "add_liquidity", args: [[usdcParsed, eurcParsed], calcMinMint(usdcParsed, eurcParsed)] });
       setTxHistory(prev => [{ hash: "", action: "Add Liquidity", detail: `${usdcAmount} USDC + ${eurcAmount} EURC`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
       setUsdcAmount(""); setEurcAmount("");
       setApproveStep("none");
@@ -101,13 +115,13 @@ export default function PoolPage() {
     } catch {
       // Error already set by useWriteContractCompat
     }
-  }, [address, usdcAmount, eurcAmount, usdcAllowance, eurcAllowance, approveStep, writeContractAsync, reset, refetchPool]);
+  }, [address, usdcParsedAmount, eurcParsedAmount, usdcAllowance, eurcAllowance, approveStep, writeContractAsync, reset, refetchPool, calcMinMint, usdcAmount, eurcAmount]);
 
   const handleRemoveLiquidity = useCallback(async () => {
-    if (!address || !lpAmount) return;
+    if (!address || !lpParsedAmount || lpParsedAmount <= BigInt(0)) return;
     try {
       // M3: Calculate minimum amounts with 1% slippage protection
-      const lpParsed = parseUnits(lpAmount, 18);
+      const lpParsed = lpParsedAmount;
       const lpTotalSupply = (poolData?.[4]?.result as bigint) ?? BigInt(0);
       const minEurc = lpTotalSupply > BigInt(0) ? (eurcReserve * lpParsed / lpTotalSupply) * BigInt(99) / BigInt(100) : BigInt(0);
       const minUsdc = lpTotalSupply > BigInt(0) ? (usdcReserve * lpParsed / lpTotalSupply) * BigInt(99) / BigInt(100) : BigInt(0);
@@ -119,13 +133,13 @@ export default function PoolPage() {
     } catch {
       // Error already set by useWriteContractCompat
     }
-  }, [address, lpAmount, writeContractAsync, reset, refetchPool, poolData, eurcReserve, usdcReserve]);
+  }, [address, lpParsedAmount, lpAmount, writeContractAsync, reset, refetchPool, poolData, eurcReserve, usdcReserve]);
 
   const getButtonText = () => {
     if (isProcessing) return <><span className="spinner" /> Processing…</>;
     if (approveStep === "usdc-approved") return "Approve EURC";
-    if (approveStep === "none" && usdcAllowance < parseUnits(usdcAmount || "0", 6)) return "Approve USDC";
-    if (approveStep === "none" && eurcAllowance < parseUnits(eurcAmount || "0", 6)) return "Approve EURC";
+    if (approveStep === "none" && usdcParsedAmount && usdcAllowance < usdcParsedAmount) return "Approve USDC";
+    if (approveStep === "none" && eurcParsedAmount && eurcAllowance < eurcParsedAmount) return "Approve EURC";
     return "Add Liquidity";
   };
 
@@ -220,7 +234,7 @@ export default function PoolPage() {
                       <input className="dex-input" type="text" placeholder="0.00" value={eurcAmount} onChange={(e) => { const v = e.target.value; if (v === "" || /^\d*\.?\d*$/.test(v)) { setEurcAmount(v); setApproveStep("none"); reset(); } }} style={{ flex: 1, textAlign: "right" }} />
                     </div>
                   </div>
-                  <button className="dex-btn dex-btn-full" disabled={!isConnected || !usdcAmount || !eurcAmount || isProcessing} onClick={handleAddLiquidity}>
+                  <button className="dex-btn dex-btn-full" disabled={!canAddLiquidity} onClick={handleAddLiquidity}>
                     {!isConnected ? "Connect wallet to add liquidity" : getButtonText()}
                   </button>
                 </>
@@ -242,7 +256,7 @@ export default function PoolPage() {
                       <button className="dex-btn dex-btn-sm dex-btn-outline" style={{ fontSize: "11px", padding: "4px 12px" }} onClick={() => setLpAmount(formatUnits(lpBalance, 18))}>MAX</button>
                     </div>
                   </div>
-                  <button className="dex-btn dex-btn-full" disabled={!isConnected || !lpAmount || isProcessing} onClick={handleRemoveLiquidity}>
+                  <button className="dex-btn dex-btn-full" disabled={!canRemoveLiquidity} onClick={handleRemoveLiquidity}>
                     {!isConnected ? "Connect wallet to remove liquidity" : isProcessing ? <><span className="spinner" /> Processing...</> : "Remove Liquidity"}
                   </button>
                 </>

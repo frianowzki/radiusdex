@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useState, useEffect } from "react";
-import { WagmiProvider, http, type Config, createConfig } from "wagmi";
+import { WagmiProvider, http, type Config } from "wagmi";
 import {
   RainbowKitProvider,
   lightTheme,

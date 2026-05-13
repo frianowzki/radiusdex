@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useAccount, useReadContracts } from "wagmi";
-import { formatUnits, parseUnits } from "viem";
+import { formatUnits } from "viem";
 import {
   STAKING_ADDRESS,
   STAKING_ABI,
@@ -14,6 +14,7 @@ import Navbar from "@/components/Navbar";
 import { useRadiusAuth } from "@/lib/auth";
 import { useWriteContractCompat } from "@/lib/useWriteContractCompat";
 import { calcAPR } from "@/lib/format";
+import { parseTokenAmount } from "@/lib/amount";
 
 export default function YieldPage() {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
@@ -55,12 +56,14 @@ export default function YieldPage() {
 
   const apr = calcAPR(rewardRate, totalStaked);
 
-  const safeParse = (() => { try { return parseUnits(amount || "0", 18); } catch { return BigInt(0); } })();
-  const needsApproval = action === "stake" && !postApprove && safeParse > BigInt(0) && lpAllowance < safeParse;
+  const parsedAmount = parseTokenAmount(amount, 18);
+  const needsApproval = action === "stake" && !postApprove && parsedAmount !== undefined && parsedAmount > BigInt(0) && lpAllowance < parsedAmount;
+  const canStake = Boolean(isConnected && parsedAmount && parsedAmount > BigInt(0) && parsedAmount <= lpBalance && !isProcessing);
+  const canUnstake = Boolean(isConnected && parsedAmount && parsedAmount > BigInt(0) && parsedAmount <= userStaked && !isProcessing);
 
   const handleStake = useCallback(async () => {
-    if (!address || !amount) return;
-    const parsed = parseUnits(amount, 18);
+    if (!address || !parsedAmount || parsedAmount <= BigInt(0)) return;
+    const parsed = parsedAmount;
     try {
       if (!postApprove && lpAllowance < parsed) {
         await writeContractAsync({ address: LP_TOKEN_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [STAKING_ADDRESS, parsed] });
@@ -76,18 +79,18 @@ export default function YieldPage() {
       reset();
       refetch();
     } catch { /* Error set by hook */ }
-  }, [address, amount, lpAllowance, postApprove, writeContractAsync, reset, refetch]);
+  }, [address, amount, parsedAmount, lpAllowance, postApprove, writeContractAsync, reset, refetch]);
 
   const handleUnstake = useCallback(async () => {
-    if (!address || !amount) return;
+    if (!address || !parsedAmount || parsedAmount <= BigInt(0)) return;
     try {
-      await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "withdraw", args: [parseUnits(amount, 18)] });
+      await writeContractAsync({ address: STAKING_ADDRESS, abi: STAKING_ABI, functionName: "withdraw", args: [parsedAmount] });
       setTxHistory(prev => [{ hash: "", action: "Unstaked", amount: `${amount} LP`, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 9)]);
       setAmount("");
       reset();
       refetch();
     } catch { /* Error set by hook */ }
-  }, [address, amount, writeContractAsync, reset, refetch]);
+  }, [address, amount, parsedAmount, writeContractAsync, reset, refetch]);
 
   const handleClaim = useCallback(async () => {
     if (!address || userEarned === BigInt(0)) return;
@@ -224,7 +227,7 @@ export default function YieldPage() {
                 </div>
               </div>
 
-              <button className="dex-btn dex-btn-full" disabled={!isConnected || !amount || isProcessing} onClick={action === "stake" ? handleStake : handleUnstake}>
+              <button className="dex-btn dex-btn-full" disabled={action === "stake" ? !canStake : !canUnstake} onClick={action === "stake" ? handleStake : handleUnstake}>
                 {!isConnected ? "Connect wallet to continue" : getButtonText()}
               </button>
             </div>

@@ -10,12 +10,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  *         Only the pool contract can mint/burn.
  */
 contract RadiusLPToken is ERC20, Ownable {
+    address private _pool;
+
     constructor() ERC20("Radius LP", "radLP") Ownable(msg.sender) {}
 
-    /// @notice Grant mint/burn authority to the pool
-    function setPool(address pool) external onlyOwner {
-        require(pool != address(0), "zero address");
-        _pool = pool;
+    /// @notice Grant mint/burn authority to the pool. Immutable after first set.
+    function setPool(address pool_) external onlyOwner {
+        require(pool_ != address(0), "zero address");
+        require(_pool == address(0), "pool already set");
+        _pool = pool_;
     }
 
     function mint(address to, uint256 amount) external {
@@ -28,5 +31,7 @@ contract RadiusLPToken is ERC20, Ownable {
         _burn(from, amount);
     }
 
-    address private _pool;
+    function pool() external view returns (address) {
+        return _pool;
+    }
 }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
@@ -11,7 +12,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *         Synthetix StakingRewards pattern — battle-tested.
  *         Owner deposits RAD for distribution. 1 RAD/second emission.
  */
-contract RadiusStaking is ReentrancyGuard {
+contract RadiusStaking is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
     // --- Immutable ---
@@ -36,7 +37,7 @@ contract RadiusStaking is ReentrancyGuard {
     event RewardPaid(address indexed user, uint256 reward);
     event RewardAdded(uint256 reward, uint256 duration);
 
-    constructor(address _stakingToken, address _rewardsToken) {
+    constructor(address _stakingToken, address _rewardsToken) Ownable(msg.sender) {
         require(_stakingToken != address(0) && _rewardsToken != address(0), "zero address");
         stakingToken = IERC20(_stakingToken);
         rewardsToken = IERC20(_rewardsToken);
@@ -64,7 +65,10 @@ contract RadiusStaking is ReentrancyGuard {
      * @param amount Amount of RAD to add
      * @param duration How many seconds to spread distribution over
      */
-    function notifyRewardAmount(uint256 amount, uint256 duration) external {
+    function notifyRewardAmount(uint256 amount, uint256 duration) external onlyOwner {
+        require(amount > 0, "zero reward");
+        require(duration > 0, "zero duration");
+        _updateRewards(address(0));
         rewardsToken.safeTransferFrom(msg.sender, address(this), amount);
         if (block.timestamp >= periodFinish) {
             rewardRatePerSecond = amount / duration;
@@ -145,7 +149,9 @@ contract RadiusStaking is ReentrancyGuard {
     function _updateRewards(address account) internal {
         rewardPerTokenStored = rewardPerToken();
         lastUpdateTime = block.timestamp > periodFinish ? periodFinish : block.timestamp;
-        rewards[account] = earned(account);
-        userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        if (account != address(0)) {
+            rewards[account] = earned(account);
+            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        }
     }
 }
